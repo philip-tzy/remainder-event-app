@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "859810132732",
+    "project_id": "campus-event-remainder",
+    "storage_bucket": "campus-event-remainder.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:859810132732:android:47cf5498f25bcd3400dd79",
+        "android_client_info": {
+          "package_name": "com.example.event_reminder_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDLoBV6PDRbhbV_D5Rkb-0VgrzqNhJ12jw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:859810132732:android:013159bc456d64cd00dd79",
+        "android_client_info": {
+          "package_name": "com.example.remainder_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDLoBV6PDRbhbV_D5Rkb-0VgrzqNhJ12jw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
