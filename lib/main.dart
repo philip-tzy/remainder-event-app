@@ -4,15 +4,14 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/auth/register_screen.dart';
 import 'screens/admin/admin_home_screen.dart';
+import 'screens/admin/event_form_screen.dart'; // NEW IMPORT
 import 'screens/user/user_home_screen.dart';
 import 'services/auth_service.dart';
-import 'firebase_options.dart'; // Import the generated file
+import 'firebase_options.dart';
 
 void main() async {
-  // Ensure Flutter is initialized
   WidgetsFlutterBinding.ensureInitialized();
   
-  // Initialize Firebase with error handling
   try {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
@@ -47,15 +46,13 @@ class CampusEventApp extends StatelessWidget {
         '/register': (context) => const RegisterScreen(),
         '/admin-home': (context) => const AdminHomeScreen(),
         '/user-home': (context) => const UserHomeScreen(),
+        '/event-form': (context) => const EventFormScreen(), // NEW ROUTE
       },
     );
   }
 }
 
-// ============================================
-// AuthWrapper - Handles automatic login
-// ============================================
-
+// AuthWrapper - Same as before
 class AuthWrapper extends StatefulWidget {
   const AuthWrapper({Key? key}) : super(key: key);
 
@@ -73,15 +70,10 @@ class _AuthWrapperState extends State<AuthWrapper> {
     _checkFirebaseInitialization();
   }
 
-  // Check if Firebase is properly initialized
   Future<void> _checkFirebaseInitialization() async {
     try {
-      // Wait a bit to ensure Firebase is ready
       await Future.delayed(const Duration(milliseconds: 500));
-      
-      // Try to access Firebase
       FirebaseAuth.instance.currentUser;
-      
       setState(() {
         _isInitialized = true;
       });
@@ -95,7 +87,6 @@ class _AuthWrapperState extends State<AuthWrapper> {
 
   @override
   Widget build(BuildContext context) {
-    // Show error if Firebase failed to initialize
     if (_hasError) {
       return Scaffold(
         body: Center(
@@ -141,7 +132,6 @@ class _AuthWrapperState extends State<AuthWrapper> {
       );
     }
 
-    // Wait for initialization
     if (!_isInitialized) {
       return const Scaffold(
         body: Center(
@@ -157,11 +147,9 @@ class _AuthWrapperState extends State<AuthWrapper> {
       );
     }
 
-    // Listen to authentication state changes
     return StreamBuilder<User?>(
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (context, snapshot) {
-        // Show loading while checking auth state
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(
             body: Center(
@@ -170,7 +158,6 @@ class _AuthWrapperState extends State<AuthWrapper> {
           );
         }
         
-        // If user is logged in, check their role and navigate
         if (snapshot.hasData && snapshot.data != null) {
           return FutureBuilder<String>(
             future: AuthService().getUserRole(snapshot.data!.uid),
@@ -183,7 +170,6 @@ class _AuthWrapperState extends State<AuthWrapper> {
                 );
               }
               
-              // Navigate based on role
               if (roleSnapshot.hasData) {
                 if (roleSnapshot.data == 'admin') {
                   return const AdminHomeScreen();
@@ -192,14 +178,12 @@ class _AuthWrapperState extends State<AuthWrapper> {
                 }
               }
               
-              // If role not found, logout and go to login
               AuthService().signOut();
               return const LoginScreen();
             },
           );
         }
         
-        // User not logged in, show login screen
         return const LoginScreen();
       },
     );
