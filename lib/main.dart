@@ -4,21 +4,29 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/auth/register_screen.dart';
 import 'screens/admin/admin_home_screen.dart';
-import 'screens/admin/event_form_screen.dart'; // NEW IMPORT
+import 'screens/admin/event_form_screen.dart';
 import 'screens/user/user_home_screen.dart';
+import 'screens/user/my_rsvp_screen.dart'; // NEW IMPORT
 import 'services/auth_service.dart';
+import 'services/notification_service.dart'; // NEW IMPORT
 import 'firebase_options.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
   try {
+    // Initialize Firebase
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
     print('✅ Firebase initialized successfully');
+    
+    // Initialize Notification Service
+    await NotificationService().initialize();
+    await NotificationService().requestPermissions();
+    print('✅ Notification service initialized');
   } catch (e) {
-    print('❌ Firebase initialization error: $e');
+    print('❌ Initialization error: $e');
   }
   
   runApp(const CampusEventApp());
@@ -46,13 +54,14 @@ class CampusEventApp extends StatelessWidget {
         '/register': (context) => const RegisterScreen(),
         '/admin-home': (context) => const AdminHomeScreen(),
         '/user-home': (context) => const UserHomeScreen(),
-        '/event-form': (context) => const EventFormScreen(), // NEW ROUTE
+        '/event-form': (context) => const EventFormScreen(),
+        '/my-rsvp': (context) => const MyRsvpScreen(), // NEW ROUTE
       },
     );
   }
 }
 
-// AuthWrapper - Same as before
+// AuthWrapper stays the same as before
 class AuthWrapper extends StatefulWidget {
   const AuthWrapper({Key? key}) : super(key: key);
 
@@ -140,7 +149,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
             children: [
               CircularProgressIndicator(),
               SizedBox(height: 16),
-              Text('Initializing Firebase...'),
+              Text('Initializing...'),
             ],
           ),
         ),
