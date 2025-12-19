@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../services/auth_service.dart';
+import '../../utils/constants.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({Key? key}) : super(key: key);
@@ -17,7 +18,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _isLoading = false;
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
-  String _selectedRole = 'user'; // Default role
+  String _selectedRole = 'user';
+  String? _selectedMajor;
+  String? _selectedClass;
   
   @override
   void dispose() {
@@ -28,30 +31,47 @@ class _RegisterScreenState extends State<RegisterScreen> {
     super.dispose();
   }
   
-  // Handle registration - FIXED VERSION
   Future<void> _handleRegister() async {
     if (!_formKey.currentState!.validate()) return;
     
-    // Check if widget is still mounted before setting state
-    if (!mounted) return;
+    // Validate student data
+    if (_selectedRole == 'user') {
+      if (_selectedMajor == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please select your major'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+      if (_selectedClass == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please select your class'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+    }
     
+    if (!mounted) return;
     setState(() => _isLoading = true);
     
-    // Call auth service
     final result = await AuthService().register(
       email: _emailController.text,
       password: _passwordController.text,
       name: _nameController.text,
       role: _selectedRole,
+      major: _selectedMajor,
+      classCode: _selectedClass,
     );
     
-    // IMPORTANT: Check if widget is still mounted after async operation
     if (!mounted) return;
-    
     setState(() => _isLoading = false);
     
     if (result['success']) {
-      // Show success message
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(result['message']),
@@ -59,14 +79,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
         ),
       );
       
-      // Navigate based on role
       if (result['role'] == 'admin') {
-        Navigator.pushReplacementNamed(context, '/admin-home');
+        Navigator.pushReplacementNamed(context, '/admin-main');
       } else {
-        Navigator.pushReplacementNamed(context, '/user-home');
+        Navigator.pushReplacementNamed(context, '/user-main');
       }
     } else {
-      // Show error message
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(result['message']),
@@ -91,7 +109,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // Icon
                   Icon(
                     Icons.person_add,
                     size: 60,
@@ -169,7 +186,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               items: const [
                                 DropdownMenuItem(
                                   value: 'user',
-                                  child: Text('User'),
+                                  child: Text('Student'),
                                 ),
                                 DropdownMenuItem(
                                   value: 'admin',
@@ -178,7 +195,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               ],
                               onChanged: (value) {
                                 if (mounted) {
-                                  setState(() => _selectedRole = value!);
+                                  setState(() {
+                                    _selectedRole = value!;
+                                    if (value == 'admin') {
+                                      _selectedMajor = null;
+                                      _selectedClass = null;
+                                    }
+                                  });
                                 }
                               },
                             ),
@@ -187,6 +210,83 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       ],
                     ),
                   ),
+                  
+                  // Show major and class selection only for students
+                  if (_selectedRole == 'user') ...[
+                    const SizedBox(height: 16),
+                    
+                    // Major Selection
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.school_outlined, color: Colors.grey),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: DropdownButtonHideUnderline(
+                              child: DropdownButton<String>(
+                                value: _selectedMajor,
+                                hint: const Text('Select Major'),
+                                isExpanded: true,
+                                items: AppConstants.majors.map((major) {
+                                  return DropdownMenuItem(
+                                    value: major,
+                                    child: Text(major),
+                                  );
+                                }).toList(),
+                                onChanged: (value) {
+                                  if (mounted) {
+                                    setState(() => _selectedMajor = value);
+                                  }
+                                },
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    
+                    // Class Selection
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.class_outlined, color: Colors.grey),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: DropdownButtonHideUnderline(
+                              child: DropdownButton<String>(
+                                value: _selectedClass,
+                                hint: const Text('Select Class'),
+                                isExpanded: true,
+                                items: AppConstants.classes.map((classCode) {
+                                  return DropdownMenuItem(
+                                    value: classCode,
+                                    child: Text('Class $classCode'),
+                                  );
+                                }).toList(),
+                                onChanged: (value) {
+                                  if (mounted) {
+                                    setState(() => _selectedClass = value);
+                                  }
+                                },
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                  
                   const SizedBox(height: 16),
                   
                   // Password Field

@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../models/user_model.dart';
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -41,28 +42,45 @@ class AuthService {
     }
   }
   
-  // Register new user
+  // Register new user - UPDATED with major and class
   Future<Map<String, dynamic>> register({
     required String email,
     required String password,
     required String name,
-    required String role, // 'admin' or 'user'
+    required String role,
+    String? major,
+    String? classCode,
   }) async {
     try {
+      // Validate student data
+      if (role == 'user' && (major == null || classCode == null)) {
+        return {
+          'success': false,
+          'message': 'Students must select major and class',
+        };
+      }
+
       // Create user account
       UserCredential userCredential = await _auth.createUserWithEmailAndPassword(
         email: email.trim(),
         password: password,
       );
       
+      // Create user model
+      final userModel = UserModel(
+        uid: userCredential.user!.uid,
+        email: email.trim(),
+        name: name.trim(),
+        role: role,
+        major: role == 'user' ? major : null,
+        classCode: role == 'user' ? classCode : null,
+      );
+
       // Save user data to Firestore
-      await _firestore.collection('users').doc(userCredential.user!.uid).set({
-        'uid': userCredential.user!.uid,
-        'email': email.trim(),
-        'name': name.trim(),
-        'role': role,
-        'createdAt': FieldValue.serverTimestamp(),
-      });
+      await _firestore
+          .collection('users')
+          .doc(userCredential.user!.uid)
+          .set(userModel.toMap());
       
       return {
         'success': true,
@@ -92,6 +110,48 @@ class AuthService {
       return 'user';
     } catch (e) {
       return 'user';
+    }
+  }
+
+  // Get full user data
+  Future<UserModel?> getUserData(String uid) async {
+    try {
+      DocumentSnapshot doc = await _firestore.collection('users').doc(uid).get();
+      if (doc.exists) {
+        return UserModel.fromFirestore(doc);
+      }
+      return null;
+    } catch (e) {
+      print('Error getting user data: $e');
+      return null;
+    }
+  }
+
+  // Update user profile
+  Future<Map<String, dynamic>> updateUserProfile({
+    required String uid,
+    String? name,
+    String? major,
+    String? classCode,
+  }) async {
+    try {
+      Map<String, dynamic> updates = {};
+      
+      if (name != null) updates['name'] = name;
+      if (major != null) updates['major'] = major;
+      if (classCode != null) updates['class'] = classCode;
+
+      await _firestore.collection('users').doc(uid).update(updates);
+
+      return {
+        'success': true,
+        'message': 'Profile updated successfully',
+      };
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Failed to update profile: $e',
+      };
     }
   }
   
