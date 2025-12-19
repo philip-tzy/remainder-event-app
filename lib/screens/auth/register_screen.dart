@@ -28,9 +28,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
     super.dispose();
   }
   
-  // Handle registration
+  // Handle registration - FIXED VERSION
   Future<void> _handleRegister() async {
     if (!_formKey.currentState!.validate()) return;
+    
+    // Check if widget is still mounted before setting state
+    if (!mounted) return;
     
     setState(() => _isLoading = true);
     
@@ -42,9 +45,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
       role: _selectedRole,
     );
     
-    setState(() => _isLoading = false);
-    
+    // IMPORTANT: Check if widget is still mounted after async operation
     if (!mounted) return;
+    
+    setState(() => _isLoading = false);
     
     if (result['success']) {
       // Show success message
@@ -173,7 +177,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 ),
                               ],
                               onChanged: (value) {
-                                setState(() => _selectedRole = value!);
+                                if (mounted) {
+                                  setState(() => _selectedRole = value!);
+                                }
                               },
                             ),
                           ),
@@ -197,7 +203,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               : Icons.visibility_off_outlined,
                         ),
                         onPressed: () {
-                          setState(() => _obscurePassword = !_obscurePassword);
+                          if (mounted) {
+                            setState(() => _obscurePassword = !_obscurePassword);
+                          }
                         },
                       ),
                       border: OutlineInputBorder(
@@ -230,7 +238,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               : Icons.visibility_off_outlined,
                         ),
                         onPressed: () {
-                          setState(() => _obscureConfirmPassword = !_obscureConfirmPassword);
+                          if (mounted) {
+                            setState(() => _obscureConfirmPassword = !_obscureConfirmPassword);
+                          }
                         },
                       ),
                       border: OutlineInputBorder(

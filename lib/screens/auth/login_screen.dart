@@ -22,9 +22,12 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
   
-  // Handle login
+  // Handle login - FIXED VERSION
   Future<void> _handleLogin() async {
     if (!_formKey.currentState!.validate()) return;
+    
+    // Check if widget is still mounted before setting state
+    if (!mounted) return;
     
     setState(() => _isLoading = true);
     
@@ -34,9 +37,10 @@ class _LoginScreenState extends State<LoginScreen> {
       password: _passwordController.text,
     );
     
-    setState(() => _isLoading = false);
-    
+    // IMPORTANT: Check if widget is still mounted after async operation
     if (!mounted) return;
+    
+    setState(() => _isLoading = false);
     
     if (result['success']) {
       // Navigate based on role
@@ -132,7 +136,9 @@ class _LoginScreenState extends State<LoginScreen> {
                               : Icons.visibility_off_outlined,
                         ),
                         onPressed: () {
-                          setState(() => _obscurePassword = !_obscurePassword);
+                          if (mounted) {
+                            setState(() => _obscurePassword = !_obscurePassword);
+                          }
                         },
                       ),
                       border: OutlineInputBorder(

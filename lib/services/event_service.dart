@@ -64,7 +64,8 @@ class EventService {
     }
   }
 
-  // Get all events (Stream for real-time updates)
+  // ✅ FIXED: Get all events (Stream for real-time updates)
+  // Simplified query - only orderBy start_at
   Stream<List<EventModel>> getAllEvents() {
     return _eventsCollection
         .orderBy('start_at', descending: false)
@@ -91,7 +92,8 @@ class EventService {
     }
   }
 
-  // Get events by category
+  // ✅ FIXED: Get events by category
+  // Simplified query - no multiple orderBy
   Stream<List<EventModel>> getEventsByCategory(String category) {
     return _eventsCollection
         .where('category', isEqualTo: category)
@@ -104,17 +106,81 @@ class EventService {
     });
   }
 
-  // Get upcoming events (events that haven't ended yet)
+  // ✅ FIXED: Get upcoming events
+  // Simplified - get all events and filter in-memory
   Stream<List<EventModel>> getUpcomingEvents() {
     return _eventsCollection
-        .where('end_at', isGreaterThanOrEqualTo: Timestamp.now())
-        .orderBy('end_at', descending: false)
         .orderBy('start_at', descending: false)
         .snapshots()
         .map((snapshot) {
+      final now = DateTime.now();
+      
+      // Filter events where end_at hasn't passed
+      return snapshot.docs
+          .map((doc) => EventModel.fromFirestore(doc))
+          .where((event) => event.endAt.isAfter(now))
+          .toList();
+    });
+  }
+
+  // ✅ NEW: Get past events (events that have ended)
+  Stream<List<EventModel>> getPastEvents() {
+    return _eventsCollection
+        .orderBy('start_at', descending: true)
+        .snapshots()
+        .map((snapshot) {
+      final now = DateTime.now();
+      
+      // Filter events where end_at has passed
+      return snapshot.docs
+          .map((doc) => EventModel.fromFirestore(doc))
+          .where((event) => event.endAt.isBefore(now))
+          .toList();
+    });
+  }
+
+  // ✅ NEW: Search events by keyword (in-memory search)
+  Stream<List<EventModel>> searchEvents(String keyword) {
+    return _eventsCollection
+        .orderBy('start_at', descending: false)
+        .snapshots()
+        .map((snapshot) {
+      final lowercaseKeyword = keyword.toLowerCase();
+      
+      return snapshot.docs
+          .map((doc) => EventModel.fromFirestore(doc))
+          .where((event) {
+            return event.title.toLowerCase().contains(lowercaseKeyword) ||
+                   event.description.toLowerCase().contains(lowercaseKeyword) ||
+                   event.location.toLowerCase().contains(lowercaseKeyword) ||
+                   event.category.toLowerCase().contains(lowercaseKeyword);
+          })
+          .toList();
+    });
+  }
+
+  // ✅ NEW: Get events with pagination (for better performance)
+  Future<List<EventModel>> getEventsPaginated({
+    int limit = 20,
+    DocumentSnapshot? startAfterDoc,
+  }) async {
+    try {
+      Query query = _eventsCollection
+          .orderBy('start_at', descending: false)
+          .limit(limit);
+
+      if (startAfterDoc != null) {
+        query = query.startAfterDocument(startAfterDoc);
+      }
+
+      final snapshot = await query.get();
+      
       return snapshot.docs
           .map((doc) => EventModel.fromFirestore(doc))
           .toList();
-    });
+    } catch (e) {
+      print('Error getting paginated events: $e');
+      return [];
+    }
   }
 }
