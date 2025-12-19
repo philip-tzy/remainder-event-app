@@ -6,44 +6,35 @@ class EventService {
   final String _collectionName = 'events';
 
   // Get reference to events collection
-  CollectionReference get _eventsCollection => 
+  CollectionReference get _eventsCollection =>
       _firestore.collection(_collectionName);
 
   // Create new event
   Future<Map<String, dynamic>> createEvent(EventModel event) async {
     try {
       DocumentReference docRef = await _eventsCollection.add(event.toMap());
-      
+
       return {
         'success': true,
         'message': 'Event created successfully',
         'eventId': docRef.id,
       };
     } catch (e) {
-      return {
-        'success': false,
-        'message': 'Failed to create event: $e',
-      };
+      return {'success': false, 'message': 'Failed to create event: $e'};
     }
   }
 
   // Update existing event
   Future<Map<String, dynamic>> updateEvent(
-    String eventId, 
-    EventModel event
+    String eventId,
+    EventModel event,
   ) async {
     try {
       await _eventsCollection.doc(eventId).update(event.toMap());
-      
-      return {
-        'success': true,
-        'message': 'Event updated successfully',
-      };
+
+      return {'success': true, 'message': 'Event updated successfully'};
     } catch (e) {
-      return {
-        'success': false,
-        'message': 'Failed to update event: $e',
-      };
+      return {'success': false, 'message': 'Failed to update event: $e'};
     }
   }
 
@@ -51,16 +42,10 @@ class EventService {
   Future<Map<String, dynamic>> deleteEvent(String eventId) async {
     try {
       await _eventsCollection.doc(eventId).delete();
-      
-      return {
-        'success': true,
-        'message': 'Event deleted successfully',
-      };
+
+      return {'success': true, 'message': 'Event deleted successfully'};
     } catch (e) {
-      return {
-        'success': false,
-        'message': 'Failed to delete event: $e',
-      };
+      return {'success': false, 'message': 'Failed to delete event: $e'};
     }
   }
 
@@ -71,17 +56,17 @@ class EventService {
         .orderBy('start_at', descending: false)
         .snapshots()
         .map((snapshot) {
-      return snapshot.docs
-          .map((doc) => EventModel.fromFirestore(doc))
-          .toList();
-    });
+          return snapshot.docs
+              .map((doc) => EventModel.fromFirestore(doc))
+              .toList();
+        });
   }
 
   // Get single event by ID
   Future<EventModel?> getEventById(String eventId) async {
     try {
       DocumentSnapshot doc = await _eventsCollection.doc(eventId).get();
-      
+
       if (doc.exists) {
         return EventModel.fromFirestore(doc);
       }
@@ -93,17 +78,17 @@ class EventService {
   }
 
   // ✅ FIXED: Get events by category
-  // Simplified query - no multiple orderBy
+  // Filter in-memory to avoid composite index requirement
   Stream<List<EventModel>> getEventsByCategory(String category) {
     return _eventsCollection
-        .where('category', isEqualTo: category)
         .orderBy('start_at', descending: false)
         .snapshots()
         .map((snapshot) {
-      return snapshot.docs
-          .map((doc) => EventModel.fromFirestore(doc))
-          .toList();
-    });
+          return snapshot.docs
+              .map((doc) => EventModel.fromFirestore(doc))
+              .where((event) => event.category == category)
+              .toList();
+        });
   }
 
   // ✅ FIXED: Get upcoming events
@@ -113,14 +98,14 @@ class EventService {
         .orderBy('start_at', descending: false)
         .snapshots()
         .map((snapshot) {
-      final now = DateTime.now();
-      
-      // Filter events where end_at hasn't passed
-      return snapshot.docs
-          .map((doc) => EventModel.fromFirestore(doc))
-          .where((event) => event.endAt.isAfter(now))
-          .toList();
-    });
+          final now = DateTime.now();
+
+          // Filter events where end_at hasn't passed
+          return snapshot.docs
+              .map((doc) => EventModel.fromFirestore(doc))
+              .where((event) => event.endAt.isAfter(now))
+              .toList();
+        });
   }
 
   // ✅ NEW: Get past events (events that have ended)
@@ -129,14 +114,14 @@ class EventService {
         .orderBy('start_at', descending: true)
         .snapshots()
         .map((snapshot) {
-      final now = DateTime.now();
-      
-      // Filter events where end_at has passed
-      return snapshot.docs
-          .map((doc) => EventModel.fromFirestore(doc))
-          .where((event) => event.endAt.isBefore(now))
-          .toList();
-    });
+          final now = DateTime.now();
+
+          // Filter events where end_at has passed
+          return snapshot.docs
+              .map((doc) => EventModel.fromFirestore(doc))
+              .where((event) => event.endAt.isBefore(now))
+              .toList();
+        });
   }
 
   // ✅ NEW: Search events by keyword (in-memory search)
@@ -145,18 +130,20 @@ class EventService {
         .orderBy('start_at', descending: false)
         .snapshots()
         .map((snapshot) {
-      final lowercaseKeyword = keyword.toLowerCase();
-      
-      return snapshot.docs
-          .map((doc) => EventModel.fromFirestore(doc))
-          .where((event) {
-            return event.title.toLowerCase().contains(lowercaseKeyword) ||
-                   event.description.toLowerCase().contains(lowercaseKeyword) ||
-                   event.location.toLowerCase().contains(lowercaseKeyword) ||
-                   event.category.toLowerCase().contains(lowercaseKeyword);
-          })
-          .toList();
-    });
+          final lowercaseKeyword = keyword.toLowerCase();
+
+          return snapshot.docs
+              .map((doc) => EventModel.fromFirestore(doc))
+              .where((event) {
+                return event.title.toLowerCase().contains(lowercaseKeyword) ||
+                    event.description.toLowerCase().contains(
+                      lowercaseKeyword,
+                    ) ||
+                    event.location.toLowerCase().contains(lowercaseKeyword) ||
+                    event.category.toLowerCase().contains(lowercaseKeyword);
+              })
+              .toList();
+        });
   }
 
   // ✅ NEW: Get events with pagination (for better performance)
@@ -174,10 +161,8 @@ class EventService {
       }
 
       final snapshot = await query.get();
-      
-      return snapshot.docs
-          .map((doc) => EventModel.fromFirestore(doc))
-          .toList();
+
+      return snapshot.docs.map((doc) => EventModel.fromFirestore(doc)).toList();
     } catch (e) {
       print('Error getting paginated events: $e');
       return [];
