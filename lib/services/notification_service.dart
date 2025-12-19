@@ -1,6 +1,5 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/timezone.dart' as tz;
-import 'package:timezone/data/latest.dart' as tz;
 import '../models/event_model.dart';
 
 class NotificationService {
@@ -8,22 +7,11 @@ class NotificationService {
   factory NotificationService() => _instance;
   NotificationService._internal();
 
-  final FlutterLocalNotificationsPlugin _notifications = 
+  final FlutterLocalNotificationsPlugin _notifications =
       FlutterLocalNotificationsPlugin();
 
-  bool _initialized = false;
-
-  // Initialize notification service
   Future<void> initialize() async {
-    if (_initialized) return;
-
-    // Initialize timezone
-    tz.initializeTimeZones();
-    
-    // Android initialization settings
     const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
-    
-    // iOS initialization settings
     const iosSettings = DarwinInitializationSettings(
       requestAlertPermission: true,
       requestBadgePermission: true,
@@ -37,119 +25,27 @@ class NotificationService {
 
     await _notifications.initialize(
       initSettings,
-      onDidReceiveNotificationResponse: _onNotificationTapped,
+      onDidReceiveNotificationResponse: (details) {
+        print('Notification tapped: ${details.payload}');
+      },
     );
-
-    _initialized = true;
-    print('✅ Notification service initialized');
   }
 
-  // Handle notification tap
-  void _onNotificationTapped(NotificationResponse response) {
-    print('Notification tapped: ${response.payload}');
-    // You can add navigation logic here
+  Future<void> requestPermissions() async {
+    final android = _notifications
+        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+    await android?.requestNotificationsPermission();
   }
 
-  // Request permissions (especially for iOS)
-  Future<bool> requestPermissions() async {
-    if (_notifications.resolvePlatformSpecificImplementation<
-        IOSFlutterLocalNotificationsPlugin>() != null) {
-      return await _notifications
-              .resolvePlatformSpecificImplementation<
-                  IOSFlutterLocalNotificationsPlugin>()!
-              .requestPermissions(
-                alert: true,
-                badge: true,
-                sound: true,
-              ) ??
-          false;
-    } else if (_notifications.resolvePlatformSpecificImplementation<
-        AndroidFlutterLocalNotificationsPlugin>() != null) {
-      return await _notifications
-              .resolvePlatformSpecificImplementation<
-                  AndroidFlutterLocalNotificationsPlugin>()!
-              .requestNotificationsPermission() ??
-          false;
-    }
-    return false;
-  }
-
-  // Schedule event reminder
-  Future<void> scheduleEventReminder({
-    required String eventId,
-    required EventModel event,
-    required int minutesBefore,
-  }) async {
-    if (!_initialized) await initialize();
-
-    // Calculate notification time
-    final notificationTime = event.startAt.subtract(
-      Duration(minutes: minutesBefore),
-    );
-
-    // Don't schedule if time has passed
-    if (notificationTime.isBefore(DateTime.now())) {
-      print('⚠️ Notification time has passed, skipping');
-      return;
-    }
-
-    // Create notification ID from event ID
-    final notificationId = eventId.hashCode;
-
-    const androidDetails = AndroidNotificationDetails(
-      'event_reminders',
-      'Event Reminders',
-      channelDescription: 'Reminders for upcoming campus events',
-      importance: Importance.high,
-      priority: Priority.high,
-      icon: '@mipmap/ic_launcher',
-    );
-
-    const iosDetails = DarwinNotificationDetails(
-      presentAlert: true,
-      presentBadge: true,
-      presentSound: true,
-    );
-
-    const notificationDetails = NotificationDetails(
-      android: androidDetails,
-      iOS: iosDetails,
-    );
-
-    await _notifications.zonedSchedule(
-      notificationId,
-      '📅 Upcoming Event: ${event.title}',
-      'Starting in $minutesBefore minutes at ${event.location}',
-      tz.TZDateTime.from(notificationTime, tz.local),
-      notificationDetails,
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-      uiLocalNotificationDateInterpretation:
-          UILocalNotificationDateInterpretation.absoluteTime,
-      payload: eventId,
-    );
-
-    print('✅ Reminder scheduled for ${event.title} at $notificationTime');
-  }
-
-  // Cancel event reminder
-  Future<void> cancelEventReminder(String eventId) async {
-    final notificationId = eventId.hashCode;
-    await _notifications.cancel(notificationId);
-    print('❌ Reminder cancelled for event: $eventId');
-  }
-
-  // Show immediate notification (for testing)
   Future<void> showImmediateNotification({
     required String title,
     required String body,
     String? payload,
   }) async {
-    if (!_initialized) await initialize();
-
     const androidDetails = AndroidNotificationDetails(
-      'event_reminders',
-      'Event Reminders',
-      channelDescription: 'Reminders for upcoming campus events',
+      'immediate_notifications',
+      'Immediate Notifications',
+      channelDescription: 'Immediate notification channel',
       importance: Importance.high,
       priority: Priority.high,
       icon: '@mipmap/ic_launcher',
@@ -167,7 +63,7 @@ class NotificationService {
     );
 
     await _notifications.show(
-      DateTime.now().millisecond,
+      DateTime.now().millisecondsSinceEpoch ~/ 1000,
       title,
       body,
       notificationDetails,
@@ -175,14 +71,133 @@ class NotificationService {
     );
   }
 
-  // Cancel all notifications
-  Future<void> cancelAllNotifications() async {
-    await _notifications.cancelAll();
-    print('❌ All notifications cancelled');
+  Future<void> scheduleNotification({
+    required int id,
+    required String title,
+    required String body,
+    required DateTime scheduledTime,
+    String? payload,
+  }) async {
+    const androidDetails = AndroidNotificationDetails(
+      'scheduled_notifications',
+      'Scheduled Notifications',
+      channelDescription: 'Scheduled notification channel',
+      importance: Importance.high,
+      priority: Priority.high,
+      icon: '@mipmap/ic_launcher',
+    );
+
+    const iosDetails = DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+    );
+
+    const notificationDetails = NotificationDetails(
+      android: androidDetails,
+      iOS: iosDetails,
+    );
+
+    await _notifications.zonedSchedule(
+      id,
+      title,
+      body,
+      tz.TZDateTime.from(scheduledTime, tz.local),
+      notificationDetails,
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      uiLocalNotificationDateInterpretation:
+          UILocalNotificationDateInterpretation.absoluteTime,
+      payload: payload,
+    );
   }
 
-  // Get pending notifications (for debugging)
-  Future<List<PendingNotificationRequest>> getPendingNotifications() async {
-    return await _notifications.pendingNotificationRequests();
+  // DIPERBAIKI: Signature method dengan named parameters sesuai penggunaan
+  Future<void> scheduleEventReminder({
+    required String eventId,
+    required EventModel event,
+    required int minutesBefore,
+  }) async {
+    await initialize();
+
+    // Calculate notification time based on minutes before
+    final eventTime = event.startAt;
+    final reminderTime = eventTime.subtract(Duration(minutes: minutesBefore));
+
+    // Don't schedule if time has passed
+    if (reminderTime.isBefore(DateTime.now())) {
+      print('⚠️ Event reminder time has passed for ${event.title}');
+      return;
+    }
+
+    // Create unique notification ID from event ID
+    final notificationId = eventId.hashCode;
+
+    const androidDetails = AndroidNotificationDetails(
+      'event_reminders',
+      'Event Reminders',
+      channelDescription: 'Reminders for upcoming campus events',
+      importance: Importance.high,
+      priority: Priority.high,
+      icon: '@mipmap/ic_launcher',
+    );
+
+    const iosDetails = DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+    );
+
+    const notificationDetails = NotificationDetails(
+      android: androidDetails,
+      iOS: iosDetails,
+    );
+
+    // Format reminder time text
+    String reminderText;
+    if (minutesBefore < 60) {
+      reminderText = '$minutesBefore minutes';
+    } else if (minutesBefore == 60) {
+      reminderText = '1 hour';
+    } else if (minutesBefore < 1440) {
+      reminderText = '${minutesBefore ~/ 60} hours';
+    } else {
+      reminderText = '${minutesBefore ~/ 1440} day';
+    }
+
+    await _notifications.zonedSchedule(
+      notificationId,
+      '📅 Event Reminder: ${event.title}',
+      'Starts in $reminderText at ${_formatTime(event.startAt)} • ${event.location}',
+      tz.TZDateTime.from(reminderTime, tz.local),
+      notificationDetails,
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      uiLocalNotificationDateInterpretation:
+          UILocalNotificationDateInterpretation.absoluteTime,
+      payload: eventId,
+    );
+
+    print('✅ Event reminder scheduled for ${event.title} at $reminderTime ($reminderText before)');
+  }
+
+  // Cancel event reminder
+  Future<void> cancelEventReminder(String eventId) async {
+    final notificationId = eventId.hashCode;
+    await _notifications.cancel(notificationId);
+    print('❌ Event reminder cancelled for event ID: $eventId');
+  }
+
+  // Helper method to format time
+  String _formatTime(DateTime dateTime) {
+    final hour = dateTime.hour.toString().padLeft(2, '0');
+    final minute = dateTime.minute.toString().padLeft(2, '0');
+    return '$hour:$minute';
+  }
+
+  Future<void> cancelAllNotifications() async {
+    await _notifications.cancelAll();
+  }
+
+  Future<void> cancelNotification(int id) async {
+    await _notifications.cancel(id);
   }
 }

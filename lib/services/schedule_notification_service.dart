@@ -1,10 +1,8 @@
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:timezone/timezone.dart' as tz;
 import '../models/schedule_model.dart';
 import 'notification_service.dart';
 
 class ScheduleNotificationService {
-  static final ScheduleNotificationService _instance = 
+  static final ScheduleNotificationService _instance =
       ScheduleNotificationService._internal();
   factory ScheduleNotificationService() => _instance;
   ScheduleNotificationService._internal();
@@ -29,35 +27,12 @@ class ScheduleNotificationService {
     final notificationId = '${schedule.major}_${schedule.classCode}_${schedule.dayOfWeek}_${schedule.timeSlot}'
         .hashCode;
 
-    const androidDetails = AndroidNotificationDetails(
-      'class_reminders',
-      'Class Reminders',
-      channelDescription: 'Reminders for upcoming classes',
-      importance: Importance.high,
-      priority: Priority.high,
-      icon: '@mipmap/ic_launcher',
-    );
-
-    const iosDetails = DarwinNotificationDetails(
-      presentAlert: true,
-      presentBadge: true,
-      presentSound: true,
-    );
-
-    const notificationDetails = NotificationDetails(
-      android: androidDetails,
-      iOS: iosDetails,
-    );
-
-    await _notificationService._notifications.zonedSchedule(
-      notificationId,
-      '📚 Upcoming Class: ${schedule.subject}',
-      'Class starts at ${schedule.timeSlot.split(' - ')[0]} in ${schedule.room} with ${schedule.lecturer}',
-      tz.TZDateTime.from(notificationTime, tz.local),
-      notificationDetails,
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-      uiLocalNotificationDateInterpretation:
-          UILocalNotificationDateInterpretation.absoluteTime,
+    // Schedule the notification using NotificationService
+    await _notificationService.scheduleNotification(
+      id: notificationId,
+      title: '📚 Upcoming Class: ${schedule.subject}',
+      body: 'Class starts at ${schedule.timeSlot.split(' - ')[0]} in ${schedule.room} with ${schedule.lecturer}',
+      scheduledTime: notificationTime,
       payload: schedule.id,
     );
 
@@ -69,11 +44,10 @@ class ScheduleNotificationService {
     List<ScheduleModel> schedules,
   ) async {
     await _notificationService.initialize();
-
+    
     for (var schedule in schedules) {
       // Get the next occurrence of this class
       final nextClassTime = _getNextOccurrence(schedule);
-      
       if (nextClassTime != null) {
         await scheduleClassNotification(schedule);
       }
@@ -100,7 +74,7 @@ class ScheduleNotificationService {
     // Calculate days until next occurrence
     final currentDayIndex = now.weekday - 1;
     int daysUntil = scheduleDayIndex - currentDayIndex;
-    
+
     if (daysUntil < 0) {
       daysUntil += 7; // Next week
     } else if (daysUntil == 0) {
@@ -113,7 +87,7 @@ class ScheduleNotificationService {
 
     final nextDate = now.add(Duration(days: daysUntil));
     final startTime = schedule.getStartTime();
-    
+
     return DateTime(
       nextDate.year,
       nextDate.month,

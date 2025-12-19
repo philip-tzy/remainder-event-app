@@ -1,15 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'user_dashboard_screen.dart';
-import 'user_home_screen.dart'; // Existing events screen
+import 'user_home_screen.dart';
 import 'schedule_list_screen.dart';
 import 'user_profile_screen.dart';
 import '../../services/schedule_notification_service.dart';
 import '../../services/auth_service.dart';
 import '../../services/schedule_service.dart';
 
+// GlobalKey untuk mengakses state dari luar
+final GlobalKey<_UserMainScreenState> userMainScreenKey = GlobalKey<_UserMainScreenState>();
+
 class UserMainScreen extends StatefulWidget {
-  const UserMainScreen({Key? key}) : super(key: key);
+  UserMainScreen({Key? key}) : super(key: key ?? userMainScreenKey);
 
   @override
   State<UserMainScreen> createState() => _UserMainScreenState();
@@ -17,20 +20,17 @@ class UserMainScreen extends StatefulWidget {
 
 class _UserMainScreenState extends State<UserMainScreen> {
   int _selectedIndex = 0;
-
   late final List<Widget> _screens;
 
   @override
   void initState() {
     super.initState();
     _screens = [
-      const UserDashboardScreen(),
-      const UserHomeScreen(), // Events screen
-      const ScheduleListScreen(),
-      const UserProfileScreen(),
+      const UserDashboardScreen(),  // Tab 0: Home
+      const UserHomeScreen(),       // Tab 1: Campus Events
+      const ScheduleListScreen(),   // Tab 2: My Schedule
+      const UserProfileScreen(),    // Tab 3: Profile
     ];
-    
-    // Schedule weekly notifications
     _scheduleWeeklyNotifications();
   }
 
@@ -50,10 +50,18 @@ class _UserMainScreenState extends State<UserMainScreen> {
 
       await ScheduleNotificationService()
           .scheduleWeeklyClassNotifications(schedules);
-      
       print('✅ Weekly class notifications scheduled');
     } catch (e) {
       print('Error scheduling notifications: $e');
+    }
+  }
+
+  // Public method untuk navigasi dari screen lain
+  void navigateToTab(int index) {
+    if (mounted) {
+      setState(() {
+        _selectedIndex = index;
+      });
     }
   }
 

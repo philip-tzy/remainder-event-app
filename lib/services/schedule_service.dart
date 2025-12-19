@@ -5,7 +5,7 @@ class ScheduleService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final String _collectionName = 'schedules';
 
-  CollectionReference get _schedulesCollection => 
+  CollectionReference get _schedulesCollection =>
       _firestore.collection(_collectionName);
 
   // Create new schedule
@@ -26,8 +26,9 @@ class ScheduleService {
         };
       }
 
-      DocumentReference docRef = await _schedulesCollection.add(schedule.toMap());
-      
+      DocumentReference docRef =
+          await _schedulesCollection.add(schedule.toMap());
+
       return {
         'success': true,
         'message': 'Schedule created successfully',
@@ -48,7 +49,7 @@ class ScheduleService {
   ) async {
     try {
       await _schedulesCollection.doc(scheduleId).update(schedule.toMap());
-      
+
       return {
         'success': true,
         'message': 'Schedule updated successfully',
@@ -65,7 +66,7 @@ class ScheduleService {
   Future<Map<String, dynamic>> deleteSchedule(String scheduleId) async {
     try {
       await _schedulesCollection.doc(scheduleId).delete();
-      
+
       return {
         'success': true,
         'message': 'Schedule deleted successfully',
@@ -78,11 +79,9 @@ class ScheduleService {
     }
   }
 
-  // Get all schedules (for admin)
+  // DIPERBAIKI: Get all schedules (untuk admin statistics)
   Stream<List<ScheduleModel>> getAllSchedules() {
     return _schedulesCollection
-        .orderBy('major')
-        .orderBy('class')
         .snapshots()
         .map((snapshot) {
       return snapshot.docs
@@ -107,7 +106,7 @@ class ScheduleService {
     });
   }
 
-  // Get schedules by day (for students)
+  // Get schedules by day for students
   Stream<List<ScheduleModel>> getSchedulesByDay(
     String major,
     String classCode,
@@ -159,7 +158,7 @@ class ScheduleService {
     }
   }
 
-  // Get upcoming classes (for notifications)
+  // Get upcoming classes for notifications
   Future<List<ScheduleModel>> getUpcomingClasses(
     String major,
     String classCode,
@@ -167,12 +166,11 @@ class ScheduleService {
     try {
       final todaySchedules = await getTodaySchedules(major, classCode);
       final now = DateTime.now();
-      
+
       // Filter schedules that are coming up within next 2 hours
       return todaySchedules.where((schedule) {
         final startTime = schedule.getStartTime();
         final twoHoursFromNow = now.add(const Duration(hours: 2));
-        
         return startTime.isAfter(now) && startTime.isBefore(twoHoursFromNow);
       }).toList();
     } catch (e) {

@@ -4,8 +4,12 @@ import 'admin_home_screen.dart';
 import 'manage_schedule_screen.dart';
 import 'admin_profile_screen.dart';
 
+// GlobalKey untuk mengakses state dari luar
+final GlobalKey<_AdminMainScreenState> adminMainScreenKey = GlobalKey<_AdminMainScreenState>();
+
 class AdminMainScreen extends StatefulWidget {
-  const AdminMainScreen({Key? key}) : super(key: key);
+  // DIPERBAIKI: Hapus const dan tambahkan key ke super
+  AdminMainScreen({Key? key}) : super(key: key ?? adminMainScreenKey);
 
   @override
   State<AdminMainScreen> createState() => _AdminMainScreenState();
@@ -13,18 +17,26 @@ class AdminMainScreen extends StatefulWidget {
 
 class _AdminMainScreenState extends State<AdminMainScreen> {
   int _selectedIndex = 0;
-
   late final List<Widget> _screens;
 
   @override
   void initState() {
     super.initState();
     _screens = [
-      const AdminDashboardScreen(),
-      const AdminHomeScreen(),
-      const ManageScheduleScreen(),
-      const AdminProfileScreen(),
+      const AdminDashboardScreen(), // Tab 0: Home (dengan statistics)
+      const AdminHomeScreen(),      // Tab 1: Manage Events
+      const ManageScheduleScreen(), // Tab 2: Manage Schedules
+      const AdminProfileScreen(),   // Tab 3: Profile
     ];
+  }
+
+  // Public method untuk navigasi dari screen lain
+  void navigateToTab(int index) {
+    if (mounted) {
+      setState(() {
+        _selectedIndex = index;
+      });
+    }
   }
 
   @override

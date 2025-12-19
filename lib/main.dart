@@ -3,24 +3,24 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/auth/register_screen.dart';
-import 'screens/admin/admin_home_screen.dart';
+import 'screens/admin/admin_main_screen.dart';
 import 'screens/admin/event_form_screen.dart';
-import 'screens/user/user_home_screen.dart';
-import 'screens/user/my_rsvp_screen.dart'; // NEW IMPORT
+import 'screens/user/user_main_screen.dart';
+import 'screens/user/my_rsvp_screen.dart';
 import 'services/auth_service.dart';
-import 'services/notification_service.dart'; // NEW IMPORT
+import 'services/notification_service.dart';
 import 'firebase_options.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
   try {
     // Initialize Firebase
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
     print('✅ Firebase initialized successfully');
-    
+
     // Initialize Notification Service
     await NotificationService().initialize();
     await NotificationService().requestPermissions();
@@ -28,7 +28,7 @@ void main() async {
   } catch (e) {
     print('❌ Initialization error: $e');
   }
-  
+
   runApp(const CampusEventApp());
 }
 
@@ -52,16 +52,15 @@ class CampusEventApp extends StatelessWidget {
       routes: {
         '/login': (context) => const LoginScreen(),
         '/register': (context) => const RegisterScreen(),
-        '/admin-home': (context) => const AdminHomeScreen(),
-        '/user-home': (context) => const UserHomeScreen(),
+        '/admin-home': (context) => AdminMainScreen(),
+        '/user-home': (context) => UserMainScreen(),
         '/event-form': (context) => const EventFormScreen(),
-        '/my-rsvp': (context) => const MyRsvpScreen(), // NEW ROUTE
+        '/my-rsvp': (context) => const MyRsvpScreen(),
       },
     );
   }
 }
 
-// AuthWrapper stays the same as before
 class AuthWrapper extends StatefulWidget {
   const AuthWrapper({Key? key}) : super(key: key);
 
@@ -70,33 +69,33 @@ class AuthWrapper extends StatefulWidget {
 }
 
 class _AuthWrapperState extends State<AuthWrapper> {
-  bool _isInitialized = false;
-  bool _hasError = false;
+  bool isInitialized = false;
+  bool hasError = false;
 
   @override
   void initState() {
     super.initState();
-    _checkFirebaseInitialization();
+    checkFirebaseInitialization();
   }
 
-  Future<void> _checkFirebaseInitialization() async {
+  Future<void> checkFirebaseInitialization() async {
     try {
       await Future.delayed(const Duration(milliseconds: 500));
       FirebaseAuth.instance.currentUser;
       setState(() {
-        _isInitialized = true;
+        isInitialized = true;
       });
     } catch (e) {
       print('Firebase check error: $e');
       setState(() {
-        _hasError = true;
+        hasError = true;
       });
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_hasError) {
+    if (hasError) {
       return Scaffold(
         body: Center(
           child: Padding(
@@ -118,19 +117,19 @@ class _AuthWrapperState extends State<AuthWrapper> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                Text(
+                const Text(
                   'Please make sure Firebase is configured correctly.\nRun: flutterfire configure',
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.grey[600]),
+                  style: TextStyle(color: Colors.grey),
                 ),
                 const SizedBox(height: 24),
                 ElevatedButton(
                   onPressed: () {
                     setState(() {
-                      _hasError = false;
-                      _isInitialized = false;
+                      hasError = false;
+                      isInitialized = false;
                     });
-                    _checkFirebaseInitialization();
+                    checkFirebaseInitialization();
                   },
                   child: const Text('Retry'),
                 ),
@@ -141,7 +140,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
       );
     }
 
-    if (!_isInitialized) {
+    if (!isInitialized) {
       return const Scaffold(
         body: Center(
           child: Column(
@@ -161,38 +160,34 @@ class _AuthWrapperState extends State<AuthWrapper> {
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(
-            body: Center(
-              child: CircularProgressIndicator(),
-            ),
+            body: Center(child: CircularProgressIndicator()),
           );
         }
-        
+
         if (snapshot.hasData && snapshot.data != null) {
           return FutureBuilder<String>(
             future: AuthService().getUserRole(snapshot.data!.uid),
             builder: (context, roleSnapshot) {
               if (roleSnapshot.connectionState == ConnectionState.waiting) {
                 return const Scaffold(
-                  body: Center(
-                    child: CircularProgressIndicator(),
-                  ),
+                  body: Center(child: CircularProgressIndicator()),
                 );
               }
-              
+
               if (roleSnapshot.hasData) {
                 if (roleSnapshot.data == 'admin') {
-                  return const AdminHomeScreen();
+                  return AdminMainScreen();
                 } else {
-                  return const UserHomeScreen();
+                  return UserMainScreen();
                 }
               }
-              
+
               AuthService().signOut();
               return const LoginScreen();
             },
           );
         }
-        
+
         return const LoginScreen();
       },
     );

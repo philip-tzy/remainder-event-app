@@ -15,7 +15,23 @@ class AppConstants {
     'Management',
   ];
 
-  // List of available classes (kelas)
+  // Map of classes by major - DIPERBAIKI: Sekarang menggunakan Map
+  static const Map<String, List<String>> classesByMajor = {
+    'Computer Science': ['A', 'B', 'C', 'D', 'E'],
+    'Information Systems': ['A', 'B', 'C', 'D'],
+    'Information Technology': ['A', 'B', 'C'],
+    'Software Engineering': ['A', 'B', 'C', 'D'],
+    'Data Science': ['A', 'B', 'C'],
+    'Cyber Security': ['A', 'B'],
+    'Electrical Engineering': ['A', 'B', 'C', 'D'],
+    'Mechanical Engineering': ['A', 'B', 'C'],
+    'Civil Engineering': ['A', 'B', 'C', 'D'],
+    'Business Administration': ['A', 'B', 'C', 'D', 'E'],
+    'Accounting': ['A', 'B', 'C'],
+    'Management': ['A', 'B', 'C', 'D'],
+  };
+
+  // List of available classes (kelas) - untuk backward compatibility
   static const List<String> classes = [
     'A',
     'B',
@@ -45,4 +61,9 @@ class AppConstants {
     '16:20 - 18:00',
     '18:00 - 19:40',
   ];
+
+  // Get classes for a specific major
+  static List<String> getClassesForMajor(String major) {
+    return classesByMajor[major] ?? classes;
+  }
 }

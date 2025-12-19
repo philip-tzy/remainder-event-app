@@ -9,7 +9,8 @@ import '../../models/schedule_model.dart';
 import '../../models/event_model.dart';
 import '../../widgets/schedule_card.dart';
 import '../../widgets/event_list_item.dart';
-import '../user/event_detail_screen.dart';
+import 'event_detail_screen.dart';
+import 'user_main_screen.dart'; // Import untuk GlobalKey
 
 class UserDashboardScreen extends StatelessWidget {
   const UserDashboardScreen({Key? key}) : super(key: key);
@@ -33,7 +34,7 @@ class UserDashboardScreen extends StatelessWidget {
           IconButton(
             icon: const Icon(Icons.notifications_outlined),
             onPressed: () {
-              // Show notifications screen
+              // TODO: Show notifications screen
             },
           ),
         ],
@@ -53,7 +54,8 @@ class UserDashboardScreen extends StatelessWidget {
 
           return RefreshIndicator(
             onRefresh: () async {
-              // Refresh data
+              // Trigger rebuild
+              (context as Element).markNeedsBuild();
             },
             child: SingleChildScrollView(
               physics: const AlwaysScrollableScrollPhysics(),
@@ -118,14 +120,14 @@ class UserDashboardScreen extends StatelessWidget {
                       ),
                       TextButton(
                         onPressed: () {
-                          // Navigate to full schedule
+                          // Navigate to Schedule tab (index 2)
+                          _navigateToScheduleTab();
                         },
                         child: const Text('View All'),
                       ),
                     ],
                   ),
                   const SizedBox(height: 12),
-
                   FutureBuilder<List<ScheduleModel>>(
                     future: ScheduleService().getTodaySchedules(
                       userData.major!,
@@ -166,12 +168,10 @@ class UserDashboardScreen extends StatelessWidget {
                       }
 
                       final schedules = scheduleSnapshot.data!;
-                      final now = DateTime.now();
 
                       return Column(
                         children: schedules.map((schedule) {
                           final isCurrentClass = schedule.isHappeningNow();
-                          
                           return ScheduleCard(
                             schedule: schedule,
                             isCurrentClass: isCurrentClass,
@@ -180,7 +180,6 @@ class UserDashboardScreen extends StatelessWidget {
                       );
                     },
                   ),
-
                   const SizedBox(height: 24),
 
                   // Today's Events Section
@@ -196,14 +195,14 @@ class UserDashboardScreen extends StatelessWidget {
                       ),
                       TextButton(
                         onPressed: () {
-                          // Navigate to all events
+                          // Navigate to Events tab (index 1)
+                          _navigateToEventsTab();
                         },
                         child: const Text('View All'),
                       ),
                     ],
                   ),
                   const SizedBox(height: 12),
-
                   StreamBuilder<List<EventModel>>(
                     stream: EventService().getUpcomingEvents(),
                     builder: (context, eventSnapshot) {
@@ -244,8 +243,8 @@ class UserDashboardScreen extends StatelessWidget {
                       final today = DateTime.now();
                       final todayEvents = eventSnapshot.data!.where((event) {
                         return event.startAt.year == today.year &&
-                               event.startAt.month == today.month &&
-                               event.startAt.day == today.day;
+                            event.startAt.month == today.month &&
+                            event.startAt.day == today.day;
                       }).toList();
 
                       if (todayEvents.isEmpty) {
@@ -293,5 +292,15 @@ class UserDashboardScreen extends StatelessWidget {
         },
       ),
     );
+  }
+
+  // Navigate to Schedule tab (index 2)
+  void _navigateToScheduleTab() {
+    userMainScreenKey.currentState?.navigateToTab(2);
+  }
+
+  // Navigate to Events tab (index 1)
+  void _navigateToEventsTab() {
+    userMainScreenKey.currentState?.navigateToTab(1);
   }
 }
