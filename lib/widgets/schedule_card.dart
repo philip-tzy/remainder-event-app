@@ -3,170 +3,193 @@ import '../models/schedule_model.dart';
 
 class ScheduleCard extends StatelessWidget {
   final ScheduleModel schedule;
-  final VoidCallback? onTap;
-  final VoidCallback? onEdit;
-  final VoidCallback? onDelete;
-  final bool showActions;
   final bool isCurrentClass;
+  final bool isUpcoming;
 
   const ScheduleCard({
     Key? key,
     required this.schedule,
-    this.onTap,
-    this.onEdit,
-    this.onDelete,
-    this.showActions = false,
     this.isCurrentClass = false,
+    this.isUpcoming = false,
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      elevation: isCurrentClass ? 4 : 2,
-      color: isCurrentClass ? Colors.blue.shade50 : null,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: isCurrentClass
-            ? BorderSide(color: Colors.blue.shade300, width: 2)
-            : BorderSide.none,
+    Color cardColor = Colors.white;
+    Color accentColor = Theme.of(context).primaryColor;
+    IconData statusIcon = Icons.schedule;
+    String statusText = 'Scheduled';
+
+    if (isCurrentClass) {
+      cardColor = Colors.green.shade50;
+      accentColor = Colors.green;
+      statusIcon = Icons.play_circle;
+      statusText = 'Ongoing';
+    } else if (isUpcoming) {
+      cardColor = Colors.orange.shade50;
+      accentColor = Colors.orange;
+      statusIcon = Icons.upcoming;
+      statusText = 'Coming Soon';
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isCurrentClass || isUpcoming
+              ? accentColor
+              : Colors.grey.shade200,
+          width: 2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Header
-              Row(
-                children: [
-                  if (isCurrentClass)
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Time and Status Row
+            Row(
+              children: [
+                // Time Badge
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: accentColor,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.access_time,
+                        size: 16,
+                        color: Colors.white,
                       ),
-                      decoration: BoxDecoration(
-                        color: Colors.green,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Text(
-                        'NOW',
-                        style: TextStyle(
+                      const SizedBox(width: 4),
+                      Text(
+                        schedule.timeSlot,
+                        style: const TextStyle(
                           color: Colors.white,
-                          fontSize: 10,
                           fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  if (isCurrentClass) const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      schedule.subject,
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-
-              // Time
-              Row(
-                children: [
-                  Icon(
-                    Icons.access_time,
-                    size: 16,
-                    color: Colors.grey[600],
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    schedule.timeSlot,
-                    style: TextStyle(
-                      color: Colors.grey[700],
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-
-              // Room
-              Row(
-                children: [
-                  Icon(
-                    Icons.meeting_room,
-                    size: 16,
-                    color: Colors.grey[600],
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    schedule.room,
-                    style: TextStyle(
-                      color: Colors.grey[700],
-                      fontSize: 14,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-
-              // Lecturer
-              Row(
-                children: [
-                  Icon(
-                    Icons.person_outline,
-                    size: 16,
-                    color: Colors.grey[600],
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      schedule.lecturer,
-                      style: TextStyle(
-                        color: Colors.grey[700],
-                        fontSize: 14,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-
-              // Actions for admin
-              if (showActions) ...[
-                const SizedBox(height: 12),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    if (onEdit != null)
-                      TextButton.icon(
-                        onPressed: onEdit,
-                        icon: const Icon(Icons.edit, size: 18),
-                        label: const Text('Edit'),
-                      ),
-                    if (onDelete != null) ...[
-                      const SizedBox(width: 8),
-                      TextButton.icon(
-                        onPressed: onDelete,
-                        icon: const Icon(Icons.delete, size: 18),
-                        label: const Text('Delete'),
-                        style: TextButton.styleFrom(
-                          foregroundColor: Colors.red,
+                          fontSize: 13,
                         ),
                       ),
                     ],
-                  ],
+                  ),
                 ),
+                const Spacer(),
+                
+                // Status Badge
+                if (isCurrentClass || isUpcoming)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: accentColor.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          statusIcon,
+                          size: 14,
+                          color: accentColor,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          statusText,
+                          style: TextStyle(
+                            color: accentColor,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 11,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
               ],
+            ),
+            const SizedBox(height: 16),
+
+            // Subject
+            Text(
+              schedule.subject,
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: isCurrentClass || isUpcoming
+                    ? accentColor
+                    : Colors.black87,
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // Details
+            _buildDetailRow(
+              Icons.person_outline,
+              schedule.lecturer,
+              Colors.blue,
+            ),
+            const SizedBox(height: 8),
+            _buildDetailRow(
+              Icons.location_on_outlined,
+              schedule.room,
+              Colors.red,
+            ),
+            if (schedule.concentration != null) ...[
+              const SizedBox(height: 8),
+              _buildDetailRow(
+                Icons.build_outlined,
+                schedule.concentration!,
+                Colors.purple,
+              ),
             ],
-          ),
+          ],
         ),
       ),
+    );
+  }
+
+  Widget _buildDetailRow(IconData icon, String text, Color color) {
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Icon(
+            icon,
+            size: 16,
+            color: color,
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            text,
+            style: const TextStyle(
+              fontSize: 14,
+              color: Colors.black87,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

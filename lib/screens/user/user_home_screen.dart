@@ -18,9 +18,11 @@ class UserHomeScreen extends StatefulWidget {
 
 class _UserHomeScreenState extends State<UserHomeScreen> {
   final _searchController = TextEditingController();
+  final _eventService = EventService();
+  final _rsvpService = RsvpService();
   String _searchQuery = '';
   String? _selectedCategory;
-  
+
   // Available categories (same as admin)
   final List<String> _categories = [
     'All',
@@ -105,7 +107,6 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
                   },
                 ),
                 const SizedBox(height: 12),
-                
                 // Category filter
                 SizedBox(
                   height: 40,
@@ -116,7 +117,7 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
                       final category = _categories[index];
                       final isSelected = _selectedCategory == category ||
                           (_selectedCategory == null && category == 'All');
-                      
+
                       return Padding(
                         padding: const EdgeInsets.only(right: 8),
                         child: FilterChip(
@@ -149,9 +150,17 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
           Expanded(
             child: StreamBuilder<List<EventModel>>(
               stream: _selectedCategory == null
-                  ? EventService().getUpcomingEvents()
-                  : EventService().getEventsByCategory(_selectedCategory!),
+                  ? _eventService.getUpcomingEvents()
+                  : _eventService.getEventsByCategory(_selectedCategory!),
               builder: (context, snapshot) {
+                // Debug prints
+                print('Connection state: ${snapshot.connectionState}');
+                print('Has data: ${snapshot.hasData}');
+                print('Data length: ${snapshot.data?.length}');
+                if (snapshot.hasError) {
+                  print('Error: ${snapshot.error}');
+                }
+
                 // Loading state
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(
@@ -187,6 +196,10 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
                 // Get events
                 var events = snapshot.data ?? [];
 
+                // REMOVED: Filter out past events - hanya tampilkan upcoming events
+                final now = DateTime.now();
+                events = events.where((e) => e.endAt.isAfter(now)).toList();
+
                 // Apply search filter
                 if (_searchQuery.isNotEmpty) {
                   events = events.where((event) {
@@ -195,6 +208,9 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
                         event.location.toLowerCase().contains(_searchQuery);
                   }).toList();
                 }
+
+                // Sort by start date (soonest first)
+                events.sort((a, b) => a.startAt.compareTo(b.startAt));
 
                 // Empty state
                 if (events.isEmpty) {
@@ -231,7 +247,7 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
                   );
                 }
 
-                // Display events
+                // Display only upcoming events (no section headers needed)
                 return RefreshIndicator(
                   onRefresh: () async {
                     setState(() {}); // Refresh the stream
@@ -241,21 +257,21 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
                     itemCount: events.length,
                     itemBuilder: (context, index) {
                       final event = events[index];
-                      
+
                       // Check if user has RSVP'd
                       return FutureBuilder<RsvpModel?>(
                         future: userId != null
-                            ? RsvpService().getUserRsvpForEvent(userId, event.id!)
+                            ? _rsvpService.getUserRsvpForEvent(userId, event.id!)
                             : Future.value(null),
                         builder: (context, rsvpSnapshot) {
                           final hasRsvpd = rsvpSnapshot.data != null;
-                          
+
                           // Get RSVP count
                           return FutureBuilder<int>(
-                            future: RsvpService().getEventRsvpCount(event.id!),
+                            future: _rsvpService.getEventRsvpCount(event.id!),
                             builder: (context, countSnapshot) {
                               final rsvpCount = countSnapshot.data ?? 0;
-                              
+
                               return EventListItem(
                                 event: event,
                                 showRsvpBadge: hasRsvpd,

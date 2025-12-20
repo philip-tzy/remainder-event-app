@@ -1,10 +1,153 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:image_picker/image_picker.dart'; // TAMBAHKAN INI
 import '../../services/auth_service.dart';
+import '../../services/storage_service.dart';
 import '../../models/user_model.dart';
 
-class UserProfileScreen extends StatelessWidget {
+class UserProfileScreen extends StatefulWidget {
   const UserProfileScreen({Key? key}) : super(key: key);
+
+  @override
+  State<UserProfileScreen> createState() => _UserProfileScreenState();
+}
+
+class _UserProfileScreenState extends State<UserProfileScreen> {
+  final _authService = AuthService();
+  final _storageService = StorageService();
+  bool _isUploading = false;
+
+  Future<void> _showImageSourceDialog() async {
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+    if (userId == null) return;
+
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_library),
+              title: const Text('Choose from Gallery'),
+              onTap: () async {
+                Navigator.pop(context);
+                await _pickAndUploadImage(ImageSource.gallery, userId);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.camera_alt),
+              title: const Text('Take a Photo'),
+              onTap: () async {
+                Navigator.pop(context);
+                await _pickAndUploadImage(ImageSource.camera, userId);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.delete, color: Colors.red),
+              title: const Text('Remove Photo', style: TextStyle(color: Colors.red)),
+              onTap: () async {
+                Navigator.pop(context);
+                await _removeProfilePicture(userId);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.cancel),
+              title: const Text('Cancel'),
+              onTap: () => Navigator.pop(context),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _pickAndUploadImage(ImageSource source, String userId) async {
+    try {
+      setState(() => _isUploading = true);
+
+      // Pick image
+      final image = source == ImageSource.gallery
+          ? await _storageService.pickImageFromGallery()
+          : await _storageService.pickImageFromCamera();
+
+      if (image == null) {
+        setState(() => _isUploading = false);
+        return;
+      }
+
+      // Upload to Firebase Storage
+      final uploadResult = await _storageService.uploadProfilePicture(
+        userId: userId,
+        imageFile: File(image.path),
+      );
+
+      if (!uploadResult['success']) {
+        throw Exception(uploadResult['message']);
+      }
+
+      // Update Firestore
+      final updateResult = await _authService.updateProfilePicture(
+        uid: userId,
+        photoURL: uploadResult['url'],
+      );
+
+      if (!mounted) return;
+
+      setState(() => _isUploading = false);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(updateResult['message']),
+          backgroundColor: updateResult['success'] ? Colors.green : Colors.red,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isUploading = false);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<void> _removeProfilePicture(String userId) async {
+    try {
+      setState(() => _isUploading = true);
+
+      // Delete from Storage
+      await _storageService.deleteProfilePicture(userId: userId);
+
+      // Update Firestore
+      final result = await _authService.removeProfilePicture(uid: userId);
+
+      if (!mounted) return;
+
+      setState(() => _isUploading = false);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(result['message']),
+          backgroundColor: result['success'] ? Colors.green : Colors.red,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isUploading = false);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Photo removed successfully'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -15,7 +158,7 @@ class UserProfileScreen extends StatelessWidget {
         title: const Text('Profile'),
       ),
       body: FutureBuilder<UserModel?>(
-        future: AuthService().getUserData(userId!),
+        future: _authService.getUserData(userId!),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
@@ -44,17 +187,54 @@ class UserProfileScreen extends StatelessWidget {
                 ),
                 child: Column(
                   children: [
-                    CircleAvatar(
-                      radius: 50,
-                      backgroundColor: Colors.white,
-                      child: Text(
-                        user.name.substring(0, 1).toUpperCase(),
-                        style: TextStyle(
-                          fontSize: 40,
-                          color: Theme.of(context).primaryColor,
-                          fontWeight: FontWeight.bold,
+                    // Profile Picture with Edit Button
+                    Stack(
+                      children: [
+                        CircleAvatar(
+                          radius: 60,
+                          backgroundColor: Colors.white,
+                          backgroundImage: user.photoURL != null
+                              ? NetworkImage(user.photoURL!)
+                              : null,
+                          child: user.photoURL == null
+                              ? Text(
+                                  user.name.substring(0, 1).toUpperCase(),
+                                  style: TextStyle(
+                                    fontSize: 40,
+                                    color: Theme.of(context).primaryColor,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                )
+                              : null,
                         ),
-                      ),
+                        if (_isUploading)
+                          Positioned.fill(
+                            child: CircleAvatar(
+                              radius: 60,
+                              backgroundColor: Colors.black54,
+                              child: const CircularProgressIndicator(
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        Positioned(
+                          bottom: 0,
+                          right: 0,
+                          child: CircleAvatar(
+                            radius: 20,
+                            backgroundColor: Colors.white,
+                            child: IconButton(
+                              icon: Icon(
+                                Icons.camera_alt,
+                                size: 20,
+                                color: Theme.of(context).primaryColor,
+                              ),
+                              onPressed: _isUploading ? null : _showImageSourceDialog,
+                              padding: EdgeInsets.zero,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 16),
                     Text(
@@ -96,6 +276,19 @@ class UserProfileScreen extends StatelessWidget {
                       subtitle: Text(user.major ?? '-'),
                     ),
                     const Divider(height: 1),
+                    ListTile(
+                      leading: const Icon(Icons.calendar_today),
+                      title: const Text('Batch'),
+                      subtitle: Text(user.batch ?? '-'),
+                    ),
+                    const Divider(height: 1),
+                    if (user.concentration != null)
+                      ListTile(
+                        leading: const Icon(Icons.build),
+                        title: const Text('Concentration'),
+                        subtitle: Text(user.concentration!),
+                      ),
+                    if (user.concentration != null) const Divider(height: 1),
                     ListTile(
                       leading: const Icon(Icons.class_),
                       title: const Text('Class'),
@@ -158,7 +351,7 @@ class UserProfileScreen extends StatelessWidget {
                       onTap: () {
                         showAboutDialog(
                           context: context,
-                          applicationName: 'Campus Remainder',
+                          applicationName: 'Campus Event Reminder',
                           applicationVersion: '1.0.0',
                           applicationIcon: const Icon(Icons.school, size: 48),
                         );
@@ -194,8 +387,8 @@ class UserProfileScreen extends StatelessWidget {
                   );
 
                   if (confirm == true) {
-                    await AuthService().signOut();
-                    if (context.mounted) {
+                    await _authService.signOut();
+                    if (mounted) {
                       Navigator.pushReplacementNamed(context, '/login');
                     }
                   }

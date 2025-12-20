@@ -57,37 +57,47 @@ class EventService {
     }
   }
 
-  // Get upcoming events
+  // Get upcoming events - SIMPLIFIED (no composite index needed)
   Stream<List<EventModel>> getUpcomingEvents() {
     return _firestore
         .collection(_collectionName)
-        .where('start_at', isGreaterThanOrEqualTo: Timestamp.now())
         .orderBy('start_at')
         .snapshots()
         .map((snapshot) {
-      return snapshot.docs
+      final now = DateTime.now();
+      // Filter in memory to avoid composite index
+      final events = snapshot.docs
           .map((doc) => EventModel.fromFirestore(doc))
+          .where((event) => event.endAt.isAfter(now))
           .toList();
+      
+      // Sort by start date
+      events.sort((a, b) => a.startAt.compareTo(b.startAt));
+      return events;
     });
   }
 
-  // Get events by category
+  // Get events by category - SIMPLIFIED
   Stream<List<EventModel>> getEventsByCategory(String category) {
     return _firestore
         .collection(_collectionName)
         .where('category', isEqualTo: category)
-        .where('start_at', isGreaterThanOrEqualTo: Timestamp.now())
         .orderBy('start_at')
         .snapshots()
         .map((snapshot) {
-      return snapshot.docs
+      final now = DateTime.now();
+      // Filter in memory to avoid composite index
+      final events = snapshot.docs
           .map((doc) => EventModel.fromFirestore(doc))
+          .where((event) => event.endAt.isAfter(now))
           .toList();
+      
+      return events;
     });
   }
 
-  // Get all events for admin
-  Stream<List<EventModel>> getAllEventsForAdmin() {
+  // Get ALL events (including past events) - for admin
+  Stream<List<EventModel>> getAllEvents() {
     return _firestore
         .collection(_collectionName)
         .orderBy('start_at', descending: true)
@@ -99,23 +109,10 @@ class EventService {
     });
   }
 
-  // Get ALL events (for admin statistics)
-  Stream<List<EventModel>> getAllEvents() {
-    return _firestore
-        .collection(_collectionName)
-        .snapshots()
-        .map((snapshot) {
-      return snapshot.docs
-          .map((doc) => EventModel.fromFirestore(doc))
-          .toList();
-    });
-  }
-
   // Get single event by ID
   Future<EventModel?> getEvent(String eventId) async {
     try {
-      final doc =
-          await _firestore.collection(_collectionName).doc(eventId).get();
+      final doc = await _firestore.collection(_collectionName).doc(eventId).get();
       if (doc.exists) {
         return EventModel.fromFirestore(doc);
       }
@@ -126,8 +123,36 @@ class EventService {
     }
   }
 
-  // DITAMBAHKAN: Get event by ID (alias untuk getEvent - untuk kompatibilitas)
+  // Alias for compatibility
   Future<EventModel?> getEventById(String eventId) async {
     return getEvent(eventId);
+  }
+
+  // Get today's events
+  Future<List<EventModel>> getTodayEvents() async {
+    try {
+      final now = DateTime.now();
+      final startOfDay = DateTime(now.year, now.month, now.day);
+      final endOfDay = DateTime(now.year, now.month, now.day, 23, 59, 59);
+
+      final snapshot = await _firestore
+          .collection(_collectionName)
+          .orderBy('start_at')
+          .get();
+
+      // Filter in memory
+      final events = snapshot.docs
+          .map((doc) => EventModel.fromFirestore(doc))
+          .where((event) {
+            return event.startAt.isAfter(startOfDay) &&
+                   event.startAt.isBefore(endOfDay);
+          })
+          .toList();
+
+      return events;
+    } catch (e) {
+      print('Error getting today events: $e');
+      return [];
+    }
   }
 }

@@ -3,40 +3,61 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 class ScheduleModel {
   final String? id;
   final String major;
+  final String batch; // Angkatan
+  final String? concentration; // Peminatan (optional)
   final String classCode;
-  final String dayOfWeek; // Monday, Tuesday, etc.
-  final String timeSlot; // "08:00 - 09:40"
-  final String subject; // Mata kuliah
-  final String lecturer; // Dosen
-  final String room; // Ruangan
+  final String dayOfWeek;
+  final String subject;
+  final String lecturer;
+  final String room;
+  final String startTime;
+  final String endTime;
   final DateTime? createdAt;
-  final String createdBy; // Admin user ID
+  final String createdBy;
 
   ScheduleModel({
     this.id,
     required this.major,
+    required this.batch,
+    this.concentration,
     required this.classCode,
     required this.dayOfWeek,
-    required this.timeSlot,
     required this.subject,
     required this.lecturer,
     required this.room,
+    required this.startTime,
+    required this.endTime,
     this.createdAt,
     required this.createdBy,
   });
+
+  // Get formatted time slot for display
+  String get timeSlot => '$startTime - $endTime';
+
+  // Get full class identifier
+  String get classIdentifier {
+    String base = '$major - Batch $batch - Class $classCode';
+    if (concentration != null && concentration!.isNotEmpty) {
+      base += ' - $concentration';
+    }
+    return base;
+  }
 
   // Convert to Map for Firestore
   Map<String, dynamic> toMap() {
     return {
       'major': major,
+      'batch': batch,
+      'concentration': concentration,
       'class': classCode,
       'day_of_week': dayOfWeek,
-      'time_slot': timeSlot,
+      'start_time': startTime,
+      'end_time': endTime,
       'subject': subject,
       'lecturer': lecturer,
       'room': room,
-      'created_at': createdAt != null 
-          ? Timestamp.fromDate(createdAt!) 
+      'created_at': createdAt != null
+          ? Timestamp.fromDate(createdAt!)
           : FieldValue.serverTimestamp(),
       'created_by': createdBy,
     };
@@ -46,17 +67,32 @@ class ScheduleModel {
   factory ScheduleModel.fromFirestore(DocumentSnapshot doc) {
     Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
     
+    // Support legacy time_slot format
+    String startTime = data['start_time'] ?? '';
+    String endTime = data['end_time'] ?? '';
+    
+    if (startTime.isEmpty && data['time_slot'] != null) {
+      final parts = (data['time_slot'] as String).split(' - ');
+      if (parts.length == 2) {
+        startTime = parts[0].trim();
+        endTime = parts[1].trim();
+      }
+    }
+    
     return ScheduleModel(
       id: doc.id,
       major: data['major'] ?? '',
+      batch: data['batch'] ?? '',
+      concentration: data['concentration'],
       classCode: data['class'] ?? '',
       dayOfWeek: data['day_of_week'] ?? '',
-      timeSlot: data['time_slot'] ?? '',
+      startTime: startTime,
+      endTime: endTime,
       subject: data['subject'] ?? '',
       lecturer: data['lecturer'] ?? '',
       room: data['room'] ?? '',
-      createdAt: data['created_at'] != null 
-          ? (data['created_at'] as Timestamp).toDate() 
+      createdAt: data['created_at'] != null
+          ? (data['created_at'] as Timestamp).toDate()
           : null,
       createdBy: data['created_by'] ?? '',
     );
@@ -64,17 +100,17 @@ class ScheduleModel {
 
   // Get full display text
   String get fullDisplay => '$subject ($timeSlot)';
-  
-  // Get class identifier
-  String get classIdentifier => '$major - $classCode';
 
   // Copy with method
   ScheduleModel copyWith({
     String? id,
     String? major,
+    String? batch,
+    String? concentration,
     String? classCode,
     String? dayOfWeek,
-    String? timeSlot,
+    String? startTime,
+    String? endTime,
     String? subject,
     String? lecturer,
     String? room,
@@ -84,9 +120,12 @@ class ScheduleModel {
     return ScheduleModel(
       id: id ?? this.id,
       major: major ?? this.major,
+      batch: batch ?? this.batch,
+      concentration: concentration ?? this.concentration,
       classCode: classCode ?? this.classCode,
       dayOfWeek: dayOfWeek ?? this.dayOfWeek,
-      timeSlot: timeSlot ?? this.timeSlot,
+      startTime: startTime ?? this.startTime,
+      endTime: endTime ?? this.endTime,
       subject: subject ?? this.subject,
       lecturer: lecturer ?? this.lecturer,
       room: room ?? this.room,
@@ -95,12 +134,10 @@ class ScheduleModel {
     );
   }
 
-  // Parse time from time slot (e.g., "08:00 - 09:40" -> DateTime for today at 08:00)
+  // Parse start time to DateTime
   DateTime getStartTime() {
     final now = DateTime.now();
-    final startTimeStr = timeSlot.split(' - ')[0];
-    final parts = startTimeStr.split(':');
-    
+    final parts = startTime.split(':');
     return DateTime(
       now.year,
       now.month,
@@ -113,9 +150,7 @@ class ScheduleModel {
   // Get end time
   DateTime getEndTime() {
     final now = DateTime.now();
-    final endTimeStr = timeSlot.split(' - ')[1];
-    final parts = endTimeStr.split(':');
-    
+    final parts = endTime.split(':');
     return DateTime(
       now.year,
       now.month,
@@ -130,7 +165,6 @@ class ScheduleModel {
     final now = DateTime.now();
     final start = getStartTime();
     final end = getEndTime();
-    
     return now.isAfter(start) && now.isBefore(end);
   }
 
@@ -139,7 +173,6 @@ class ScheduleModel {
     final now = DateTime.now();
     final start = getStartTime();
     final oneHourFromNow = now.add(const Duration(hours: 1));
-    
     return start.isAfter(now) && start.isBefore(oneHourFromNow);
   }
 }

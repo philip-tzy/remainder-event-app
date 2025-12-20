@@ -15,13 +15,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
+
   bool _isLoading = false;
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
   String _selectedRole = 'user';
   String? _selectedMajor;
+  String? _selectedBatch;
+  String? _selectedConcentration;
   String? _selectedClass;
-  
+
   @override
   void dispose() {
     _nameController.dispose();
@@ -30,16 +33,25 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _confirmPasswordController.dispose();
     super.dispose();
   }
-  
+
   Future<void> _handleRegister() async {
     if (!_formKey.currentState!.validate()) return;
-    
+
     // Validate student data
     if (_selectedRole == 'user') {
       if (_selectedMajor == null) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Please select your major'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+      if (_selectedBatch == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please select your batch'),
             backgroundColor: Colors.red,
           ),
         );
@@ -55,22 +67,30 @@ class _RegisterScreenState extends State<RegisterScreen> {
         return;
       }
     }
-    
+
     if (!mounted) return;
-    setState(() => _isLoading = true);
-    
+
+    setState(() {
+      _isLoading = true;
+    });
+
     final result = await AuthService().register(
       email: _emailController.text,
       password: _passwordController.text,
       name: _nameController.text,
       role: _selectedRole,
       major: _selectedMajor,
+      batch: _selectedBatch,
+      concentration: _selectedConcentration,
       classCode: _selectedClass,
     );
-    
+
     if (!mounted) return;
-    setState(() => _isLoading = false);
-    
+
+    setState(() {
+      _isLoading = false;
+    });
+
     if (result['success']) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -78,11 +98,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
           backgroundColor: Colors.green,
         ),
       );
-      
+
       if (result['role'] == 'admin') {
-        Navigator.pushReplacementNamed(context, '/admin-main');
+        Navigator.pushReplacementNamed(context, '/admin-home');
       } else {
-        Navigator.pushReplacementNamed(context, '/user-main');
+        Navigator.pushReplacementNamed(context, '/user-home');
       }
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -93,7 +113,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       );
     }
   }
-  
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -115,25 +135,21 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     color: Theme.of(context).primaryColor,
                   ),
                   const SizedBox(height: 16),
-                  
                   Text(
                     'Register New Account',
                     style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
+                          fontWeight: FontWeight.bold,
+                        ),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 32),
-                  
+
                   // Name Field
                   TextFormField(
                     controller: _nameController,
-                    decoration: InputDecoration(
+                    decoration: const InputDecoration(
                       labelText: 'Full Name',
-                      prefixIcon: const Icon(Icons.person_outline),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
+                      prefixIcon: Icon(Icons.person_outline),
                     ),
                     validator: (value) {
                       if (value == null || value.isEmpty) {
@@ -143,17 +159,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     },
                   ),
                   const SizedBox(height: 16),
-                  
+
                   // Email Field
                   TextFormField(
                     controller: _emailController,
                     keyboardType: TextInputType.emailAddress,
-                    decoration: InputDecoration(
+                    decoration: const InputDecoration(
                       labelText: 'Email',
-                      prefixIcon: const Icon(Icons.email_outlined),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
+                      prefixIcon: Icon(Icons.email_outlined),
                     ),
                     validator: (value) {
                       if (value == null || value.isEmpty) {
@@ -166,129 +179,137 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     },
                   ),
                   const SizedBox(height: 16),
-                  
+
                   // Role Selection
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: Colors.grey),
-                      borderRadius: BorderRadius.circular(12),
+                  DropdownButtonFormField<String>(
+                    value: _selectedRole,
+                    decoration: const InputDecoration(
+                      labelText: 'Role',
+                      prefixIcon: Icon(Icons.badge_outlined),
                     ),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.badge_outlined, color: Colors.grey),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: DropdownButtonHideUnderline(
-                            child: DropdownButton<String>(
-                              value: _selectedRole,
-                              isExpanded: true,
-                              items: const [
-                                DropdownMenuItem(
-                                  value: 'user',
-                                  child: Text('Student'),
-                                ),
-                                DropdownMenuItem(
-                                  value: 'admin',
-                                  child: Text('Admin'),
-                                ),
-                              ],
-                              onChanged: (value) {
-                                if (mounted) {
-                                  setState(() {
-                                    _selectedRole = value!;
-                                    if (value == 'admin') {
-                                      _selectedMajor = null;
-                                      _selectedClass = null;
-                                    }
-                                  });
-                                }
-                              },
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
+                    items: const [
+                      DropdownMenuItem(value: 'user', child: Text('Student')),
+                      DropdownMenuItem(value: 'admin', child: Text('Admin')),
+                    ],
+                    onChanged: (value) {
+                      setState(() {
+                        _selectedRole = value!;
+                        if (value == 'admin') {
+                          _selectedMajor = null;
+                          _selectedBatch = null;
+                          _selectedConcentration = null;
+                          _selectedClass = null;
+                        }
+                      });
+                    },
                   ),
-                  
-                  // Show major and class selection only for students
+
+                  // Show student fields only for students
                   if (_selectedRole == 'user') ...[
                     const SizedBox(height: 16),
-                    
+
                     // Major Selection
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey),
-                        borderRadius: BorderRadius.circular(12),
+                    DropdownButtonFormField<String>(
+                      value: _selectedMajor,
+                      decoration: const InputDecoration(
+                        labelText: 'Major',
+                        prefixIcon: Icon(Icons.school_outlined),
                       ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.school_outlined, color: Colors.grey),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: DropdownButtonHideUnderline(
-                              child: DropdownButton<String>(
-                                value: _selectedMajor,
-                                hint: const Text('Select Major'),
-                                isExpanded: true,
-                                items: AppConstants.majors.map((major) {
-                                  return DropdownMenuItem(
-                                    value: major,
-                                    child: Text(major),
-                                  );
-                                }).toList(),
-                                onChanged: (value) {
-                                  if (mounted) {
-                                    setState(() => _selectedMajor = value);
-                                  }
-                                },
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
+                      hint: const Text('Select Major'),
+                      items: AppConstants.majors.map((major) {
+                        return DropdownMenuItem(
+                          value: major,
+                          child: Text(major),
+                        );
+                      }).toList(),
+                      onChanged: (value) {
+                        setState(() {
+                          _selectedMajor = value;
+                          _selectedConcentration = null; // Reset concentration
+                        });
+                      },
                     ),
                     const SizedBox(height: 16),
-                    
-                    // Class Selection
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey),
-                        borderRadius: BorderRadius.circular(12),
+
+                    // Batch Selection
+                    DropdownButtonFormField<String>(
+                      value: _selectedBatch,
+                      decoration: const InputDecoration(
+                        labelText: 'Batch (Angkatan)',
+                        prefixIcon: Icon(Icons.calendar_today_outlined),
                       ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.class_outlined, color: Colors.grey),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: DropdownButtonHideUnderline(
-                              child: DropdownButton<String>(
-                                value: _selectedClass,
-                                hint: const Text('Select Class'),
-                                isExpanded: true,
-                                items: AppConstants.classes.map((classCode) {
-                                  return DropdownMenuItem(
-                                    value: classCode,
-                                    child: Text('Class $classCode'),
-                                  );
-                                }).toList(),
-                                onChanged: (value) {
-                                  if (mounted) {
-                                    setState(() => _selectedClass = value);
-                                  }
-                                },
-                              ),
-                            ),
+                      hint: const Text('Select Batch'),
+                      items: AppConstants.batches.map((batch) {
+                        return DropdownMenuItem(
+                          value: batch,
+                          child: Text(batch),
+                        );
+                      }).toList(),
+                      onChanged: (value) {
+                        setState(() {
+                          _selectedBatch = value;
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Concentration Selection (Optional)
+                    if (_selectedMajor != null &&
+                        AppConstants.getConcentrationsForMajor(_selectedMajor!)
+                            .isNotEmpty)
+                      DropdownButtonFormField<String>(
+                        value: _selectedConcentration,
+                        decoration: const InputDecoration(
+                          labelText: 'Concentration (Optional)',
+                          prefixIcon: Icon(Icons.build_outlined),
+                        ),
+                        hint: const Text('Select Concentration'),
+                        items: [
+                          const DropdownMenuItem(
+                            value: null,
+                            child: Text('None'),
                           ),
+                          ...AppConstants.getConcentrationsForMajor(
+                                  _selectedMajor!)
+                              .map((concentration) {
+                            return DropdownMenuItem(
+                              value: concentration,
+                              child: Text(concentration),
+                            );
+                          }),
                         ],
+                        onChanged: (value) {
+                          setState(() {
+                            _selectedConcentration = value;
+                          });
+                        },
                       ),
+                    const SizedBox(height: 16),
+
+                    // Class Selection
+                    DropdownButtonFormField<String>(
+                      value: _selectedClass,
+                      decoration: const InputDecoration(
+                        labelText: 'Class',
+                        prefixIcon: Icon(Icons.class_outlined),
+                      ),
+                      hint: const Text('Select Class'),
+                      items: AppConstants.classes.map((classCode) {
+                        return DropdownMenuItem(
+                          value: classCode,
+                          child: Text('Class $classCode'),
+                        );
+                      }).toList(),
+                      onChanged: (value) {
+                        setState(() {
+                          _selectedClass = value;
+                        });
+                      },
                     ),
                   ],
-                  
+
                   const SizedBox(height: 16),
-                  
+
                   // Password Field
                   TextFormField(
                     controller: _passwordController,
@@ -304,12 +325,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         ),
                         onPressed: () {
                           if (mounted) {
-                            setState(() => _obscurePassword = !_obscurePassword);
+                            setState(() {
+                              _obscurePassword = !_obscurePassword;
+                            });
                           }
                         },
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
                       ),
                     ),
                     validator: (value) {
@@ -323,7 +343,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     },
                   ),
                   const SizedBox(height: 16),
-                  
+
                   // Confirm Password Field
                   TextFormField(
                     controller: _confirmPasswordController,
@@ -339,12 +359,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         ),
                         onPressed: () {
                           if (mounted) {
-                            setState(() => _obscureConfirmPassword = !_obscureConfirmPassword);
+                            setState(() {
+                              _obscureConfirmPassword =
+                                  !_obscureConfirmPassword;
+                            });
                           }
                         },
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
                       ),
                     ),
                     validator: (value) {
@@ -358,23 +378,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     },
                   ),
                   const SizedBox(height: 24),
-                  
+
                   // Register Button
                   ElevatedButton(
                     onPressed: _isLoading ? null : _handleRegister,
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
                     child: _isLoading
                         ? const SizedBox(
                             height: 20,
                             width: 20,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                              valueColor:
+                                  AlwaysStoppedAnimation<Color>(Colors.white),
                             ),
                           )
                         : const Text(
@@ -386,7 +401,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           ),
                   ),
                   const SizedBox(height: 16),
-                  
+
                   // Login Link
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -396,9 +411,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         style: TextStyle(color: Colors.grey[600]),
                       ),
                       TextButton(
-                        onPressed: () {
-                          Navigator.pop(context);
-                        },
+                        onPressed: () => Navigator.pop(context),
                         child: const Text(
                           'Login',
                           style: TextStyle(fontWeight: FontWeight.bold),

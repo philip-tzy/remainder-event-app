@@ -15,29 +15,100 @@ class AppConstants {
     'Management',
   ];
 
-  // Map of classes by major - DIPERBAIKI: Sekarang menggunakan Map
-  static const Map<String, List<String>> classesByMajor = {
-    'Computer Science': ['A', 'B', 'C', 'D', 'E'],
-    'Information Systems': ['A', 'B', 'C', 'D'],
-    'Information Technology': ['A', 'B', 'C'],
-    'Software Engineering': ['A', 'B', 'C', 'D'],
-    'Data Science': ['A', 'B', 'C'],
-    'Cyber Security': ['A', 'B'],
-    'Electrical Engineering': ['A', 'B', 'C', 'D'],
-    'Mechanical Engineering': ['A', 'B', 'C'],
-    'Civil Engineering': ['A', 'B', 'C', 'D'],
-    'Business Administration': ['A', 'B', 'C', 'D', 'E'],
-    'Accounting': ['A', 'B', 'C'],
-    'Management': ['A', 'B', 'C', 'D'],
+  // List of batches (angkatan)
+  static const List<String> batches = [
+    '2020',
+    '2021',
+    '2022',
+    '2023',
+    '2024',
+    '2025',
+  ];
+
+  // Map of concentrations by major (peminatan)
+  static const Map<String, List<String>> concentrationsByMajor = {
+    'Computer Science': [
+      'Artificial Intelligence',
+      'Data Science',
+      'Software Engineering',
+      'Cyber Security',
+      'Game Development',
+    ],
+    'Information Systems': [
+      'Business Intelligence',
+      'Enterprise Systems',
+      'E-Business',
+      'IT Audit',
+    ],
+    'Information Technology': [
+      'Network Engineering',
+      'Cloud Computing',
+      'IoT',
+      'Mobile Computing',
+    ],
+    'Software Engineering': [
+      'Web Development',
+      'Mobile Development',
+      'DevOps',
+      'Quality Assurance',
+    ],
+    'Data Science': [
+      'Machine Learning',
+      'Big Data Analytics',
+      'Data Engineering',
+      'Business Analytics',
+    ],
+    'Cyber Security': [
+      'Network Security',
+      'Application Security',
+      'Digital Forensics',
+      'Penetration Testing',
+    ],
+    'Electrical Engineering': [
+      'Power Systems',
+      'Electronics',
+      'Telecommunications',
+      'Control Systems',
+    ],
+    'Mechanical Engineering': [
+      'Manufacturing',
+      'Automotive',
+      'Robotics',
+      'Energy Systems',
+    ],
+    'Civil Engineering': [
+      'Structural Engineering',
+      'Transportation',
+      'Water Resources',
+      'Construction Management',
+    ],
+    'Business Administration': [
+      'Marketing',
+      'Human Resources',
+      'Operations Management',
+      'Entrepreneurship',
+    ],
+    'Accounting': [
+      'Financial Accounting',
+      'Management Accounting',
+      'Taxation',
+      'Auditing',
+    ],
+    'Management': [
+      'Strategic Management',
+      'Project Management',
+      'Supply Chain Management',
+      'International Business',
+    ],
   };
 
-  // List of available classes (kelas) - untuk backward compatibility
+  // Classes (angka 1-5 untuk menampung kelas besar)
   static const List<String> classes = [
-    'A',
-    'B',
-    'C',
-    'D',
-    'E',
+    '1',
+    '2',
+    '3',
+    '4',
+    '5',
   ];
 
   // Days of week
@@ -51,19 +122,13 @@ class AppConstants {
     'Sunday',
   ];
 
-  // Time slots (jam kuliah)
-  static const List<String> timeSlots = [
-    '07:00 - 08:40',
-    '08:40 - 10:20',
-    '10:20 - 12:00',
-    '13:00 - 14:40',
-    '14:40 - 16:20',
-    '16:20 - 18:00',
-    '18:00 - 19:40',
-  ];
+  // Get concentrations for a specific major
+  static List<String> getConcentrationsForMajor(String major) {
+    return concentrationsByMajor[major] ?? [];
+  }
 
-  // Get classes for a specific major
-  static List<String> getClassesForMajor(String major) {
-    return classesByMajor[major] ?? classes;
+  // Get full class name (for backward compatibility)
+  static String getFullClassName(String classNumber) {
+    return 'Class $classNumber';
   }
 }

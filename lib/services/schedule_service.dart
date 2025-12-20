@@ -5,34 +5,13 @@ class ScheduleService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final String _collectionName = 'schedules';
 
-  CollectionReference get _schedulesCollection =>
-      _firestore.collection(_collectionName);
-
-  // Create new schedule
+  // Create schedule
   Future<Map<String, dynamic>> createSchedule(ScheduleModel schedule) async {
     try {
-      // Check for conflicts (same major, class, day, time)
-      final existing = await _schedulesCollection
-          .where('major', isEqualTo: schedule.major)
-          .where('class', isEqualTo: schedule.classCode)
-          .where('day_of_week', isEqualTo: schedule.dayOfWeek)
-          .where('time_slot', isEqualTo: schedule.timeSlot)
-          .get();
-
-      if (existing.docs.isNotEmpty) {
-        return {
-          'success': false,
-          'message': 'Schedule conflict: This time slot is already occupied',
-        };
-      }
-
-      DocumentReference docRef =
-          await _schedulesCollection.add(schedule.toMap());
-
+      await _firestore.collection(_collectionName).add(schedule.toMap());
       return {
         'success': true,
         'message': 'Schedule created successfully',
-        'scheduleId': docRef.id,
       };
     } catch (e) {
       return {
@@ -44,12 +23,12 @@ class ScheduleService {
 
   // Update schedule
   Future<Map<String, dynamic>> updateSchedule(
-    String scheduleId,
-    ScheduleModel schedule,
-  ) async {
+      String scheduleId, ScheduleModel schedule) async {
     try {
-      await _schedulesCollection.doc(scheduleId).update(schedule.toMap());
-
+      await _firestore
+          .collection(_collectionName)
+          .doc(scheduleId)
+          .update(schedule.toMap());
       return {
         'success': true,
         'message': 'Schedule updated successfully',
@@ -65,8 +44,7 @@ class ScheduleService {
   // Delete schedule
   Future<Map<String, dynamic>> deleteSchedule(String scheduleId) async {
     try {
-      await _schedulesCollection.doc(scheduleId).delete();
-
+      await _firestore.collection(_collectionName).doc(scheduleId).delete();
       return {
         'success': true,
         'message': 'Schedule deleted successfully',
@@ -79,23 +57,38 @@ class ScheduleService {
     }
   }
 
-  // DIPERBAIKI: Get all schedules (untuk admin statistics)
-  Stream<List<ScheduleModel>> getAllSchedules() {
-    return _schedulesCollection
-        .snapshots()
-        .map((snapshot) {
+  // Get schedules by filter (major, batch, class, and optional concentration)
+  Stream<List<ScheduleModel>> getSchedulesByFilter(
+    String major,
+    String batch,
+    String classCode,
+    String? concentration,
+  ) {
+    Query query = _firestore
+        .collection(_collectionName)
+        .where('major', isEqualTo: major)
+        .where('batch', isEqualTo: batch)
+        .where('class', isEqualTo: classCode);
+
+    // Filter by concentration if specified
+    if (concentration != null && concentration.isNotEmpty) {
+      query = query.where('concentration', isEqualTo: concentration);
+    }
+
+    return query.snapshots().map((snapshot) {
       return snapshot.docs
           .map((doc) => ScheduleModel.fromFirestore(doc))
           .toList();
     });
   }
 
-  // Get schedules by major and class (for students)
+  // ADDED: Get schedules by class (backward compatibility)
   Stream<List<ScheduleModel>> getSchedulesByClass(
     String major,
     String classCode,
   ) {
-    return _schedulesCollection
+    return _firestore
+        .collection(_collectionName)
         .where('major', isEqualTo: major)
         .where('class', isEqualTo: classCode)
         .snapshots()
@@ -106,76 +99,101 @@ class ScheduleService {
     });
   }
 
-  // Get schedules by day for students
-  Stream<List<ScheduleModel>> getSchedulesByDay(
+  // Get schedules for a specific user (based on their profile)
+  Stream<List<ScheduleModel>> getSchedulesForUser(
     String major,
+    String batch,
     String classCode,
-    String dayOfWeek,
+    String? concentration,
   ) {
-    return _schedulesCollection
-        .where('major', isEqualTo: major)
-        .where('class', isEqualTo: classCode)
-        .where('day_of_week', isEqualTo: dayOfWeek)
-        .snapshots()
-        .map((snapshot) {
-      return snapshot.docs
-          .map((doc) => ScheduleModel.fromFirestore(doc))
-          .toList();
-    });
+    return getSchedulesByFilter(major, batch, classCode, concentration);
   }
 
-  // Get today's schedules for a student
+  // ADDED: Get today's schedules
   Future<List<ScheduleModel>> getTodaySchedules(
     String major,
-    String classCode,
-  ) async {
+    String classCode, {
+    String? batch,
+    String? concentration,
+  }) async {
     try {
-      // Get current day of week
-      final now = DateTime.now();
-      final dayNames = [
-        'Monday',
-        'Tuesday',
-        'Wednesday',
-        'Thursday',
-        'Friday',
-        'Saturday',
-        'Sunday'
-      ];
-      final dayOfWeek = dayNames[now.weekday - 1];
+      final today = DateTime.now();
+      final dayName = _getDayName(today.weekday);
 
-      final snapshot = await _schedulesCollection
+      Query query = _firestore
+          .collection(_collectionName)
           .where('major', isEqualTo: major)
           .where('class', isEqualTo: classCode)
-          .where('day_of_week', isEqualTo: dayOfWeek)
-          .get();
+          .where('day_of_week', isEqualTo: dayName);
 
-      return snapshot.docs
+      // Add batch filter if provided
+      if (batch != null) {
+        query = query.where('batch', isEqualTo: batch);
+      }
+
+      // Add concentration filter if provided
+      if (concentration != null && concentration.isNotEmpty) {
+        query = query.where('concentration', isEqualTo: concentration);
+      }
+
+      final snapshot = await query.get();
+      final schedules = snapshot.docs
           .map((doc) => ScheduleModel.fromFirestore(doc))
           .toList();
+
+      // Sort by start time
+      schedules.sort((a, b) => a.startTime.compareTo(b.startTime));
+
+      return schedules;
     } catch (e) {
       print('Error getting today schedules: $e');
       return [];
     }
   }
 
-  // Get upcoming classes for notifications
-  Future<List<ScheduleModel>> getUpcomingClasses(
-    String major,
-    String classCode,
-  ) async {
-    try {
-      final todaySchedules = await getTodaySchedules(major, classCode);
-      final now = DateTime.now();
+  // Helper: Get day name from weekday number
+  String _getDayName(int weekday) {
+    switch (weekday) {
+      case 1:
+        return 'Monday';
+      case 2:
+        return 'Tuesday';
+      case 3:
+        return 'Wednesday';
+      case 4:
+        return 'Thursday';
+      case 5:
+        return 'Friday';
+      case 6:
+        return 'Saturday';
+      case 7:
+        return 'Sunday';
+      default:
+        return 'Monday';
+    }
+  }
 
-      // Filter schedules that are coming up within next 2 hours
-      return todaySchedules.where((schedule) {
-        final startTime = schedule.getStartTime();
-        final twoHoursFromNow = now.add(const Duration(hours: 2));
-        return startTime.isAfter(now) && startTime.isBefore(twoHoursFromNow);
-      }).toList();
+  // Get all schedules (for admin)
+  Stream<List<ScheduleModel>> getAllSchedules() {
+    return _firestore.collection(_collectionName).snapshots().map((snapshot) {
+      return snapshot.docs
+          .map((doc) => ScheduleModel.fromFirestore(doc))
+          .toList();
+    });
+  }
+
+  // Get schedule by ID
+  Future<ScheduleModel?> getSchedule(String scheduleId) async {
+    try {
+      final doc =
+          await _firestore.collection(_collectionName).doc(scheduleId).get();
+      if (doc.exists) {
+        return ScheduleModel.fromFirestore(doc);
+      }
+      return null;
     } catch (e) {
-      print('Error getting upcoming classes: $e');
-      return [];
+      print('Error getting schedule: $e');
+      return null;
     }
   }
 }

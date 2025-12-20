@@ -130,12 +130,29 @@ class RsvpService {
   Stream<List<RsvpModel>> getEventRsvps(String eventId) {
     return _rsvpCollection
         .where('event_id', isEqualTo: eventId)
-        .orderBy('rsvp_at', descending: false)
         .snapshots()
         .map((snapshot) {
-      return snapshot.docs
+      // Convert to list
+      final rsvps = snapshot.docs
           .map((doc) => RsvpModel.fromFirestore(doc))
           .toList();
+      
+      // Sort by rsvp_at ascending, handle null values
+      rsvps.sort((a, b) {
+        // Jika keduanya null, dianggap sama
+        if (a.rsvpAt == null && b.rsvpAt == null) return 0;
+        
+        // Jika a null, taruh di belakang
+        if (a.rsvpAt == null) return 1;
+        
+        // Jika b null, taruh di belakang
+        if (b.rsvpAt == null) return -1;
+        
+        // Keduanya tidak null, sort ascending (terlama dulu)
+        return a.rsvpAt!.compareTo(b.rsvpAt!);
+      });
+      
+      return rsvps;
     });
   }
 }

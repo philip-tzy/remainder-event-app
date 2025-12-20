@@ -10,12 +10,14 @@ class AdminHomeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final eventService = EventService();
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Admin Dashboard'),
       ),
       body: StreamBuilder<List<EventModel>>(
-        stream: EventService().getAllEvents(),
+        stream: eventService.getAllEvents(),
         builder: (context, snapshot) {
           // Loading state
           if (snapshot.connectionState == ConnectionState.waiting) {
@@ -73,26 +75,71 @@ class AdminHomeScreen extends StatelessWidget {
             );
           }
 
-          // Display events list
+          // Sort events: Upcoming first, then past events
           List<EventModel> events = snapshot.data!;
+          final now = DateTime.now();
+          final upcomingEvents = events.where((e) => e.endAt.isAfter(now)).toList();
+          final pastEvents = events.where((e) => e.endAt.isBefore(now)).toList();
+
+          // Sort upcoming by start date (soonest first)
+          upcomingEvents.sort((a, b) => a.startAt.compareTo(b.startAt));
           
+          // Sort past by end date (most recent first)
+          pastEvents.sort((a, b) => b.endAt.compareTo(a.endAt));
+
+          // Combine: upcoming first, then past
+          final sortedEvents = [...upcomingEvents, ...pastEvents];
+
           return ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: events.length,
+            padding: const EdgeInsets.only(
+              left: 16,
+              right: 16,
+              top: 16,
+              bottom: 88, // TAMBAHKAN PADDING BAWAH UNTUK FAB
+            ),
+            itemCount: sortedEvents.length + (pastEvents.isNotEmpty && upcomingEvents.isNotEmpty ? 1 : 0),
             itemBuilder: (context, index) {
+              // Add section header before past events
+              if (index == upcomingEvents.length && pastEvents.isNotEmpty && upcomingEvents.isNotEmpty) {
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  child: Row(
+                    children: [
+                      Expanded(child: Divider(color: Colors.grey[400])),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        child: Text(
+                          'PAST EVENTS',
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
+                      Expanded(child: Divider(color: Colors.grey[400])),
+                    ],
+                  ),
+                );
+              }
+
+              // Adjust index if section header was shown
+              final eventIndex = index > upcomingEvents.length ? index - 1 : index;
+              final event = sortedEvents[eventIndex];
+
               return EventCard(
-                event: events[index],
+                event: event,
                 onEdit: () {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
                       builder: (context) => EventFormScreen(
-                        event: events[index],
+                        event: event,
                       ),
                     ),
                   );
                 },
-                onDelete: () => _confirmDelete(context, events[index]),
+                onDelete: () => _confirmDelete(context, event),
               );
             },
           );
@@ -181,126 +228,164 @@ class EventCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final dateFormat = DateFormat('EEE, dd MMM yyyy');
     final timeFormat = DateFormat('HH:mm');
+    final isPast = event.endAt.isBefore(DateTime.now());
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 16),
-      elevation: 2,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Title and Category
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    event.title,
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
+    return Opacity(
+      opacity: isPast ? 0.6 : 1.0,
+      child: Card(
+        margin: const EdgeInsets.only(bottom: 16),
+        elevation: isPast ? 1 : 2,
+        color: isPast ? Colors.grey[100] : Colors.white,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Title and Category
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      event.title,
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: isPast ? Colors.grey[700] : Colors.black,
+                        decoration: isPast ? TextDecoration.lineThrough : null,
+                      ),
                     ),
                   ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: _getCategoryColor(event.category),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    event.category,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
+                  if (isPast)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[600],
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Text(
+                        'ENDED',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: _getCategoryColor(event.category),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      event.category,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-
-            // Description
-            Text(
-              event.description,
-              style: TextStyle(
-                color: Colors.grey[700],
-                height: 1.4,
+                ],
               ),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const SizedBox(height: 12),
+              const SizedBox(height: 8),
 
-            // Location
-            Row(
-              children: [
-                Icon(Icons.location_on, size: 16, color: Colors.grey[600]),
-                const SizedBox(width: 4),
-                Expanded(
-                  child: Text(
-                    event.location,
+              // Description
+              Text(
+                event.description,
+                style: TextStyle(
+                  color: isPast ? Colors.grey[600] : Colors.grey[700],
+                  height: 1.4,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 12),
+
+              // Location
+              Row(
+                children: [
+                  Icon(Icons.location_on, size: 16, color: Colors.grey[600]),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(
+                      event.location,
+                      style: TextStyle(
+                        color: Colors.grey[600],
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+
+              // Date and Time
+              Row(
+                children: [
+                  Icon(Icons.calendar_today, size: 16, color: Colors.grey[600]),
+                  const SizedBox(width: 4),
+                  Text(
+                    dateFormat.format(event.startAt),
                     style: TextStyle(
                       color: Colors.grey[600],
                       fontSize: 14,
                     ),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
+                  const SizedBox(width: 16),
+                  Icon(Icons.access_time, size: 16, color: Colors.grey[600]),
+                  const SizedBox(width: 4),
+                  Text(
+                    '${timeFormat.format(event.startAt)} - ${timeFormat.format(event.endAt)}',
+                    style: TextStyle(
+                      color: Colors.grey[600],
+                      fontSize: 14,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
 
-            // Date and Time
-            Row(
-              children: [
-                Icon(Icons.calendar_today, size: 16, color: Colors.grey[600]),
-                const SizedBox(width: 4),
-                Text(
-                  dateFormat.format(event.startAt),
-                  style: TextStyle(
-                    color: Colors.grey[600],
-                    fontSize: 14,
+              // Action Buttons - DIPERBAIKI: Wrap dengan SingleChildScrollView jika diperlukan
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: onEdit,
+                    icon: const Icon(Icons.edit, size: 18),
+                    label: const Text('Edit'),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
+                    ),
                   ),
-                ),
-                const SizedBox(width: 16),
-                Icon(Icons.access_time, size: 16, color: Colors.grey[600]),
-                const SizedBox(width: 4),
-                Text(
-                  '${timeFormat.format(event.startAt)} - ${timeFormat.format(event.endAt)}',
-                  style: TextStyle(
-                    color: Colors.grey[600],
-                    fontSize: 14,
+                  const SizedBox(width: 8),
+                  ElevatedButton.icon(
+                    onPressed: onDelete,
+                    icon: const Icon(Icons.delete, size: 18),
+                    label: const Text('Delete'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
+                    ),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-
-            // Action Buttons
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                TextButton.icon(
-                  onPressed: onEdit,
-                  icon: const Icon(Icons.edit, size: 18),
-                  label: const Text('Edit'),
-                ),
-                const SizedBox(width: 8),
-                TextButton.icon(
-                  onPressed: onDelete,
-                  icon: const Icon(Icons.delete, size: 18),
-                  label: const Text('Delete'),
-                  style: TextButton.styleFrom(
-                    foregroundColor: Colors.red,
-                  ),
-                ),
-              ],
-            ),
-          ],
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -310,19 +395,19 @@ class EventCard extends StatelessWidget {
   Color _getCategoryColor(String category) {
     switch (category.toLowerCase()) {
       case 'seminar':
-        return Colors.blue;
+        return const Color(0xFF003160);
       case 'competition':
-        return Colors.orange;
+        return const Color(0xFFFF6B00);
       case 'ukm':
-        return Colors.green;
+        return const Color(0xFF00A651);
       case 'workshop':
-        return Colors.purple;
+        return const Color(0xFFB10000);
       case 'sports':
-        return Colors.red;
+        return const Color(0xFFE91E63);
       case 'cultural':
-        return Colors.pink;
+        return const Color(0xFF9C27B0);
       default:
-        return Colors.grey;
+        return const Color(0xFF757575);
     }
   }
 }

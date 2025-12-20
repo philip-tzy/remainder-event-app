@@ -5,10 +5,10 @@ import '../models/user_model.dart';
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  
+
   // Get current user
   User? get currentUser => _auth.currentUser;
-  
+
   // Sign in with email and password
   Future<Map<String, dynamic>> signIn({
     required String email,
@@ -20,10 +20,10 @@ class AuthService {
         email: email.trim(),
         password: password,
       );
-      
+
       // Get user role from Firestore
       String role = await getUserRole(userCredential.user!.uid);
-      
+
       return {
         'success': true,
         'role': role,
@@ -41,22 +41,24 @@ class AuthService {
       };
     }
   }
-  
-  // Register new user - UPDATED with major and class
+
+  // Register new user
   Future<Map<String, dynamic>> register({
     required String email,
     required String password,
     required String name,
     required String role,
     String? major,
+    String? batch,
+    String? concentration,
     String? classCode,
   }) async {
     try {
       // Validate student data
-      if (role == 'user' && (major == null || classCode == null)) {
+      if (role == 'user' && (major == null || batch == null || classCode == null)) {
         return {
           'success': false,
-          'message': 'Students must select major and class',
+          'message': 'Students must select major, batch, and class',
         };
       }
 
@@ -65,7 +67,7 @@ class AuthService {
         email: email.trim(),
         password: password,
       );
-      
+
       // Create user model
       final userModel = UserModel(
         uid: userCredential.user!.uid,
@@ -73,7 +75,10 @@ class AuthService {
         name: name.trim(),
         role: role,
         major: role == 'user' ? major : null,
+        batch: role == 'user' ? batch : null,
+        concentration: role == 'user' ? concentration : null,
         classCode: role == 'user' ? classCode : null,
+        photoURL: null,
       );
 
       // Save user data to Firestore
@@ -81,7 +86,7 @@ class AuthService {
           .collection('users')
           .doc(userCredential.user!.uid)
           .set(userModel.toMap());
-      
+
       return {
         'success': true,
         'role': role,
@@ -99,7 +104,7 @@ class AuthService {
       };
     }
   }
-  
+
   // Get user role from Firestore
   Future<String> getUserRole(String uid) async {
     try {
@@ -132,14 +137,20 @@ class AuthService {
     required String uid,
     String? name,
     String? major,
+    String? batch,
+    String? concentration,
     String? classCode,
+    String? photoURL,
   }) async {
     try {
       Map<String, dynamic> updates = {};
-      
+
       if (name != null) updates['name'] = name;
       if (major != null) updates['major'] = major;
+      if (batch != null) updates['batch'] = batch;
+      if (concentration != null) updates['concentration'] = concentration;
       if (classCode != null) updates['class'] = classCode;
+      if (photoURL != null) updates['photo_url'] = photoURL;
 
       await _firestore.collection('users').doc(uid).update(updates);
 
@@ -154,12 +165,55 @@ class AuthService {
       };
     }
   }
-  
+
+  // Update profile picture
+  Future<Map<String, dynamic>> updateProfilePicture({
+    required String uid,
+    required String photoURL,
+  }) async {
+    try {
+      await _firestore.collection('users').doc(uid).update({
+        'photo_url': photoURL,
+      });
+
+      return {
+        'success': true,
+        'message': 'Profile picture updated successfully',
+      };
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Failed to update profile picture: $e',
+      };
+    }
+  }
+
+  // Remove profile picture
+  Future<Map<String, dynamic>> removeProfilePicture({
+    required String uid,
+  }) async {
+    try {
+      await _firestore.collection('users').doc(uid).update({
+        'photo_url': FieldValue.delete(),
+      });
+
+      return {
+        'success': true,
+        'message': 'Profile picture removed successfully',
+      };
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Failed to remove profile picture: $e',
+      };
+    }
+  }
+
   // Sign out
   Future<void> signOut() async {
     await _auth.signOut();
   }
-  
+
   // Helper method to get user-friendly error messages
   String _getErrorMessage(String code) {
     switch (code) {
